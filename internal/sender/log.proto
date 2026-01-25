@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package log;
+
+option go_package = "heimdall/proto";
+
+service LogService {
+  rpc SendLogs (LogBatch) returns (Response) {}
+}
+
+message LogEntry {
+  int64 timestamp = 1; // Unix Nano
+  uint32 pid = 2;
+  string type = 3;
+  string payload = 4;
+  uint64 duration_ns = 5;
+}
+
+message LogBatch {
+  repeated LogEntry entries = 1;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+}

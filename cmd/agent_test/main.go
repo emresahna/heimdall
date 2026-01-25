@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -9,12 +10,18 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/emresahna/heimdall/internal/collector"
+	"github.com/emresahna/heimdall/internal/storage"
+
+	pb "github.com/emresahna/heimdall/internal/sender"
 )
 
 func main() {
@@ -40,7 +47,15 @@ func main() {
 	}
 	defer rd.Close()
 
-	fmt.Println("Agent Started. Listening for events...")
+	serverAddr := os.Getenv("SERVER_ADDR")
+
+	conn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewLogServiceClient(conn)
 
 	go func() {
 		var event struct {
@@ -49,6 +64,8 @@ func main() {
 			DurationNs uint64
 			Payload    [200]byte
 		}
+
+		var batchBuffer []storage.LogEntry
 
 		for {
 			record, err := rd.Read()
@@ -77,11 +94,45 @@ func main() {
 			cleanPayload := strings.ReplaceAll(payloadStr, "\n", " ")
 			cleanPayload = strings.ReplaceAll(cleanPayload, "\r", "")
 
-			fmt.Printf("[%s] PID: %d | Data: %s...\n", msgType, event.Pid, cleanPayload[:50])
+			batchBuffer = append(batchBuffer, storage.LogEntry{
+				Timestamp:  time.Now(),
+				Pid:        event.Pid,
+				Type:       msgType,
+				Payload:    cleanPayload,
+				DurationNs: event.DurationNs,
+			})
+
+			if len(batchBuffer) >= 10 {
+				sendRPC(client, batchBuffer)
+				batchBuffer = batchBuffer[:0]
+			}
 		}
 	}()
 
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	<-stopper
+}
+
+func sendRPC(client pb.LogServiceClient, logs []storage.LogEntry) {
+	var protoLogs []*pb.LogEntry
+	for _, l := range logs {
+		protoLogs = append(protoLogs, &pb.LogEntry{
+			Timestamp:  l.Timestamp.UnixNano(),
+			Pid:        l.Pid,
+			Type:       l.Type,
+			Payload:    l.Payload,
+			DurationNs: l.DurationNs,
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err := client.SendLogs(ctx, &pb.LogBatch{Entries: protoLogs})
+	if err != nil {
+		log.Printf("gRPC error: %v", err)
+	} else {
+		fmt.Printf("%d log sent.\n", len(logs))
+	}
 }
