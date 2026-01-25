@@ -23,6 +23,7 @@ func (s *server) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, 
 
 	for _, entry := range req.Entries {
 		logs = append(logs, storage.LogEntry{
+			Timestamp:  entry.Timestamp.AsTime(),
 			Pid:        entry.Pid,
 			Type:       entry.Type,
 			Payload:    entry.Payload,

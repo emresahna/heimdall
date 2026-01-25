@@ -29,7 +29,9 @@ type DB struct {
 
 func NewClickHouse(cfg Config) (*DB, error) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{cfg.Addr},
+		Addr: []string{
+			cfg.Addr,
+		},
 		Auth: clickhouse.Auth{
 			Database: cfg.Database,
 			Username: cfg.User,

@@ -9,7 +9,7 @@ COPY . .
 
 RUN go generate ./internal/collector
 
-RUN go build -o heimdall-agent ./cmd/agent_test/main.go
+RUN go build -o heimdall-agent ./cmd/agent/main.go
 
 FROM debian:bookworm-slim
 

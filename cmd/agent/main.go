@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/emresahna/heimdall/internal/collector"
 	"github.com/emresahna/heimdall/internal/storage"
@@ -84,20 +85,20 @@ func main() {
 
 			payloadStr := string(bytes.TrimRight(event.Payload[:], "\x00"))
 
-			msgType := "UNKNOWN"
-			if event.Type == 1 {
-				msgType = "REQUEST (-->)"
-			} else if event.Type == 2 {
-				msgType = "RESPONSE (<--)"
-			}
-
 			cleanPayload := strings.ReplaceAll(payloadStr, "\n", " ")
 			cleanPayload = strings.ReplaceAll(cleanPayload, "\r", "")
+
+			eventType := "UNKNOWN"
+			if event.Type == 0 {
+				eventType = "REQUEST"
+			} else if event.Type == 1 {
+				eventType = "RESPONSE"
+			}
 
 			batchBuffer = append(batchBuffer, storage.LogEntry{
 				Timestamp:  time.Now(),
 				Pid:        event.Pid,
-				Type:       msgType,
+				Type:       eventType,
 				Payload:    cleanPayload,
 				DurationNs: event.DurationNs,
 			})
@@ -118,7 +119,7 @@ func sendRPC(client pb.LogServiceClient, logs []storage.LogEntry) {
 	var protoLogs []*pb.LogEntry
 	for _, l := range logs {
 		protoLogs = append(protoLogs, &pb.LogEntry{
-			Timestamp:  l.Timestamp.UnixNano(),
+			Timestamp:  timestamppb.New(l.Timestamp),
 			Pid:        l.Pid,
 			Type:       l.Type,
 			Payload:    l.Payload,
