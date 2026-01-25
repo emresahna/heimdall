@@ -4,11 +4,12 @@
 // 	protoc        v3.21.12
 // source: internal/sender/log.proto
 
-package proto
+package sender
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -23,7 +24,7 @@ const (
 
 type LogEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Timestamp     int64                  `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // Unix Nano
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	Pid           uint32                 `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
 	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
 	Payload       string                 `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
@@ -62,11 +63,11 @@ func (*LogEntry) Descriptor() ([]byte, []int) {
 	return file_internal_sender_log_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LogEntry) GetTimestamp() int64 {
+func (x *LogEntry) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
 		return x.Timestamp
 	}
-	return 0
+	return nil
 }
 
 func (x *LogEntry) GetPid() uint32 {
@@ -197,9 +198,9 @@ var File_internal_sender_log_proto protoreflect.FileDescriptor
 
 const file_internal_sender_log_proto_rawDesc = "" +
 	"\n" +
-	"\x19internal/sender/log.proto\x12\x03log\"\x89\x01\n" +
-	"\bLogEntry\x12\x1c\n" +
-	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12\x10\n" +
+	"\x19internal/sender/log.proto\x12\x03log\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa5\x01\n" +
+	"\bLogEntry\x128\n" +
+	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x10\n" +
 	"\x03pid\x18\x02 \x01(\rR\x03pid\x12\x12\n" +
 	"\x04type\x18\x03 \x01(\tR\x04type\x12\x18\n" +
 	"\apayload\x18\x04 \x01(\tR\apayload\x12\x1f\n" +
@@ -212,7 +213,7 @@ const file_internal_sender_log_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage28\n" +
 	"\n" +
 	"LogService\x12*\n" +
-	"\bSendLogs\x12\r.log.LogBatch\x1a\r.log.Response\"\x00B\x10Z\x0eheimdall/protob\x06proto3"
+	"\bSendLogs\x12\r.log.LogBatch\x1a\r.log.Response\"\x00B&Z$github.com/emresahna/heimdall/senderb\x06proto3"
 
 var (
 	file_internal_sender_log_proto_rawDescOnce sync.Once
@@ -228,19 +229,21 @@ func file_internal_sender_log_proto_rawDescGZIP() []byte {
 
 var file_internal_sender_log_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_internal_sender_log_proto_goTypes = []any{
-	(*LogEntry)(nil), // 0: log.LogEntry
-	(*LogBatch)(nil), // 1: log.LogBatch
-	(*Response)(nil), // 2: log.Response
+	(*LogEntry)(nil),              // 0: log.LogEntry
+	(*LogBatch)(nil),              // 1: log.LogBatch
+	(*Response)(nil),              // 2: log.Response
+	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 }
 var file_internal_sender_log_proto_depIdxs = []int32{
-	0, // 0: log.LogBatch.entries:type_name -> log.LogEntry
-	1, // 1: log.LogService.SendLogs:input_type -> log.LogBatch
-	2, // 2: log.LogService.SendLogs:output_type -> log.Response
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: log.LogEntry.timestamp:type_name -> google.protobuf.Timestamp
+	0, // 1: log.LogBatch.entries:type_name -> log.LogEntry
+	1, // 2: log.LogService.SendLogs:input_type -> log.LogBatch
+	2, // 3: log.LogService.SendLogs:output_type -> log.Response
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_internal_sender_log_proto_init() }

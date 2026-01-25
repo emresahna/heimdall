@@ -1,15 +1,17 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 package log;
 
-option go_package = "heimdall/proto";
+option go_package = "github.com/emresahna/heimdall/sender";
 
 service LogService {
   rpc SendLogs (LogBatch) returns (Response) {}
 }
 
 message LogEntry {
-  int64 timestamp = 1; // Unix Nano
+  google.protobuf.Timestamp timestamp = 1;
   uint32 pid = 2;
   string type = 3;
   string payload = 4;

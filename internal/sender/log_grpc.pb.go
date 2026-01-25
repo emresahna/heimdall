@@ -4,7 +4,7 @@
 // - protoc             v3.21.12
 // source: internal/sender/log.proto
 
-package proto
+package sender
 
 import (
 	context "context"
