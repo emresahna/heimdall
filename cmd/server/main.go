@@ -19,8 +19,7 @@ type server struct {
 }
 
 func (s *server) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, error) {
-	var logs []storage.LogEntry
-
+	logs := make([]storage.LogEntry, 0, len(req.Entries))
 	for _, entry := range req.Entries {
 		logs = append(logs, storage.LogEntry{
 			Timestamp:  entry.Timestamp.AsTime(),

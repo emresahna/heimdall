@@ -41,7 +41,6 @@ func NewClickHouse(cfg Config) (*DB, error) {
 			"max_execution_time": 60,
 		},
 	})
-
 	if err != nil {
 		return nil, err
 	}
