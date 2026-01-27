@@ -15,14 +15,12 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/emresahna/heimdall/internal/collector"
+	pb "github.com/emresahna/heimdall/internal/sender"
+	"github.com/emresahna/heimdall/internal/storage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/emresahna/heimdall/internal/collector"
-	"github.com/emresahna/heimdall/internal/storage"
-
-	pb "github.com/emresahna/heimdall/internal/sender"
 )
 
 func main() {
@@ -50,7 +48,10 @@ func main() {
 
 	serverAddr := os.Getenv("SERVER_ADDR")
 
-	conn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(
+		serverAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -78,7 +79,11 @@ func main() {
 				continue
 			}
 
-			if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &event); err != nil {
+			if err := binary.Read(
+				bytes.NewBuffer(record.RawSample),
+				binary.LittleEndian,
+				&event,
+			); err != nil {
 				log.Printf("Parse err: %v", err)
 				continue
 			}
@@ -116,7 +121,7 @@ func main() {
 }
 
 func sendRPC(client pb.LogServiceClient, logs []storage.LogEntry) {
-	var protoLogs []*pb.LogEntry
+	protoLogs := make([]*pb.LogEntry, 0, len(logs))
 	for _, l := range logs {
 		protoLogs = append(protoLogs, &pb.LogEntry{
 			Timestamp:  timestamppb.New(l.Timestamp),
