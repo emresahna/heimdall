@@ -1,13 +1,13 @@
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
-
 package log;
 
-option go_package = "github.com/emresahna/heimdall/sender";
+option go_package = "github.com/emresahna/heimdall/internal/sender";
+
+import "google/protobuf/timestamp.proto";
 
 service LogService {
-  rpc SendLogs (LogBatch) returns (Response) {}
+  rpc SendLogs (LogBatch) returns (Response);
 }
 
 message LogEntry {
@@ -16,6 +16,9 @@ message LogEntry {
   string type = 3;
   string payload = 4;
   uint64 duration_ns = 5;
+  uint32 status = 6;
+  string method = 7;
+  string path = 8;
 }
 
 message LogBatch {

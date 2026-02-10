@@ -29,6 +29,9 @@ type LogEntry struct {
 	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
 	Payload       string                 `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
 	DurationNs    uint64                 `protobuf:"varint,5,opt,name=duration_ns,json=durationNs,proto3" json:"duration_ns,omitempty"`
+	Status        uint32                 `protobuf:"varint,6,opt,name=status,proto3" json:"status,omitempty"`
+	Method        string                 `protobuf:"bytes,7,opt,name=method,proto3" json:"method,omitempty"`
+	Path          string                 `protobuf:"bytes,8,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -96,6 +99,27 @@ func (x *LogEntry) GetDurationNs() uint64 {
 		return x.DurationNs
 	}
 	return 0
+}
+
+func (x *LogEntry) GetStatus() uint32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *LogEntry) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *LogEntry) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
 }
 
 type LogBatch struct {
@@ -198,22 +222,25 @@ var File_internal_sender_log_proto protoreflect.FileDescriptor
 
 const file_internal_sender_log_proto_rawDesc = "" +
 	"\n" +
-	"\x19internal/sender/log.proto\x12\x03log\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa5\x01\n" +
+	"\x19internal/sender/log.proto\x12\x03log\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe9\x01\n" +
 	"\bLogEntry\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x10\n" +
 	"\x03pid\x18\x02 \x01(\rR\x03pid\x12\x12\n" +
 	"\x04type\x18\x03 \x01(\tR\x04type\x12\x18\n" +
 	"\apayload\x18\x04 \x01(\tR\apayload\x12\x1f\n" +
 	"\vduration_ns\x18\x05 \x01(\x04R\n" +
-	"durationNs\"3\n" +
+	"durationNs\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\rR\x06status\x12\x16\n" +
+	"\x06method\x18\a \x01(\tR\x06method\x12\x12\n" +
+	"\x04path\x18\b \x01(\tR\x04path\"3\n" +
 	"\bLogBatch\x12'\n" +
 	"\aentries\x18\x01 \x03(\v2\r.log.LogEntryR\aentries\">\n" +
 	"\bResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage28\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage26\n" +
 	"\n" +
-	"LogService\x12*\n" +
-	"\bSendLogs\x12\r.log.LogBatch\x1a\r.log.Response\"\x00B&Z$github.com/emresahna/heimdall/senderb\x06proto3"
+	"LogService\x12(\n" +
+	"\bSendLogs\x12\r.log.LogBatch\x1a\r.log.ResponseB/Z-github.com/emresahna/heimdall/internal/senderb\x06proto3"
 
 var (
 	file_internal_sender_log_proto_rawDescOnce sync.Once

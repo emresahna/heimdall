@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heimdall-server
+  labels:
+    app: heimdall-server
+    component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: heimdall-server
+  template:
+    metadata:
+      labels:
+        app: heimdall-server
+    spec:
+      containers:
+      - name: server
+        image: heimdall-server:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: CLICKHOUSE_ADDR
+          value: "clickhouse:9000"
+        - name: CLICKHOUSE_DB
+          value: "default"
+        - name: CLICKHOUSE_USER
+          value: "default"
+        - name: CLICKHOUSE_PASSWORD
+          value: ""
+        ports:
+        - containerPort: 50051
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: heimdall-server
+spec:
+  selector:
+    app: heimdall-server
+  ports:
+  - port: 50051
+    targetPort: 50051

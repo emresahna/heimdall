@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: heimdall-agent
+  labels:
+    app: heimdall-agent
+    component: agent
+spec:
+  selector:
+    matchLabels:
+      app: heimdall-agent
+  template:
+    metadata:
+      labels:
+        app: heimdall-agent
+    spec:
+      hostPID: true
+      containers:
+      - name: agent
+        image: heimdall-agent:latest
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: SERVER_ADDR
+          value: "heimdall-server:50051"
+        volumeMounts:
+        - name: debugfs
+          mountPath: /sys/kernel/debug
+      volumes:
+      - name: debugfs
+        hostPath:
+          path: /sys/kernel/debug
