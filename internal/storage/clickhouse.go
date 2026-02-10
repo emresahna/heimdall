@@ -8,14 +8,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-type LogEntry struct {
-	Timestamp  time.Time `ch:"timestamp"`
-	Pid        uint32    `ch:"pid"`
-	Type       string    `ch:"type"`
-	Payload    string    `ch:"payload"`
-	DurationNs uint64    `ch:"duration_ns"`
-}
-
 type Config struct {
 	Addr     string
 	Database string
@@ -25,6 +17,17 @@ type Config struct {
 
 type DB struct {
 	conn driver.Conn
+}
+
+type LogEntry struct {
+	Timestamp  time.Time
+	Pid        uint32
+	Type       string
+	Status     uint32
+	Method     string
+	Path       string
+	Payload    string // Kept for retro-compatibility
+	DurationNs uint64
 }
 
 func NewClickHouse(cfg Config) (*DB, error) {
@@ -53,11 +56,18 @@ func NewClickHouse(cfg Config) (*DB, error) {
 }
 
 func (db *DB) Migrate() error {
+	// Dropping old table for simplicity in this refactor since schema changed drastically
+	// In production, we would use ALTER TABLE or versioned migrations.
+	_ = db.conn.Exec(context.Background(), "DROP TABLE IF EXISTS http_logs")
+
 	schema := `
 	CREATE TABLE IF NOT EXISTS http_logs (
-		timestamp DateTime,
+		timestamp DateTime64(9),
 		pid UInt32,
 		type String,
+		status UInt32,
+		method String,
+		path String,
 		payload String,
 		duration_ns UInt64
 	) ENGINE = MergeTree()
@@ -83,6 +93,9 @@ func (db *DB) InsertBatch(logs []LogEntry) error {
 			log.Timestamp,
 			log.Pid,
 			log.Type,
+			log.Status,
+			log.Method,
+			log.Path,
 			log.Payload,
 			log.DurationNs,
 		)

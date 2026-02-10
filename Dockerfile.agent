@@ -1,0 +1,33 @@
+FROM golang:1.25.3-bookworm AS builder
+
+RUN apt-get update && apt-get install -y \
+    clang \
+    llvm \
+    libbpf-dev \
+    gcc \
+    make \
+    git \
+    protobuf-compiler \
+    bpftool
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Generate eBPF code
+RUN go generate ./internal/collector/...
+
+# Build the agent
+RUN CGO_ENABLED=1 GOOS=linux go build -o agent ./cmd/agent
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /app/agent /app/agent
+
+CMD ["/app/agent"]

@@ -5,20 +5,53 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 
-	pb "github.com/emresahna/heimdall/internal/sender"
+	"github.com/emresahna/heimdall/internal/config"
 	"github.com/emresahna/heimdall/internal/storage"
 	"google.golang.org/grpc"
+
+	pb "github.com/emresahna/heimdall/internal/sender"
 )
 
-var db *storage.DB
-
-type server struct {
+type Server struct {
 	pb.UnimplementedLogServiceServer
+	DB *storage.DB
 }
 
-func (s *server) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, error) {
+func main() {
+	cfg := config.Load()
+
+	var err error
+	db, err := storage.NewClickHouse(storage.Config{
+		Addr:     cfg.ClickHouseConfig.Addr,
+		Database: cfg.ClickHouseConfig.DB,
+		User:     cfg.ClickHouseConfig.User,
+		Password: cfg.ClickHouseConfig.Password,
+	})
+	if err != nil {
+		log.Fatalf("DB connection error: %v", err)
+	}
+
+	if err := db.Migrate(); err != nil {
+		log.Fatalf("migration error: %v", err)
+	}
+
+	lis, err := net.Listen("tcp", ":"+cfg.Port)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	sender := &Server{DB: db}
+	grpcServer := grpc.NewServer()
+	pb.RegisterLogServiceServer(grpcServer, sender)
+
+	log.Printf("gRPC Server listening on port %s...\n", cfg.Port)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+func (s *Server) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, error) {
 	logs := make([]storage.LogEntry, 0, len(req.Entries))
 	for _, entry := range req.Entries {
 		logs = append(logs, storage.LogEntry{
@@ -27,11 +60,14 @@ func (s *server) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, 
 			Type:       entry.Type,
 			Payload:    entry.Payload,
 			DurationNs: entry.DurationNs,
+			Status:     entry.Status,
+			Method:     entry.Method,
+			Path:       entry.Path,
 		})
 	}
 
 	go func(data []storage.LogEntry) {
-		if err := db.InsertBatch(data); err != nil {
+		if err := s.DB.InsertBatch(data); err != nil {
 			log.Printf("Failed to write to DB: %v", err)
 		} else {
 			fmt.Printf("%d log received.\n", len(data))
@@ -39,39 +75,4 @@ func (s *server) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, 
 	}(logs)
 
 	return &pb.Response{Success: true, Message: "OK"}, nil
-}
-
-func main() {
-	dbAddr := os.Getenv("CLICKHOUSE_ADDR")
-	dbUser := os.Getenv("CLICKHOUSE_USER")
-	dbPass := os.Getenv("CLICKHOUSE_PASSWORD")
-	dbName := os.Getenv("CLICKHOUSE_DB")
-
-	var err error
-	db, err = storage.NewClickHouse(storage.Config{
-		Addr:     dbAddr,
-		Database: dbName,
-		User:     dbUser,
-		Password: dbPass,
-	})
-	if err != nil {
-		log.Fatalf("DB Connection Error: %v", err)
-	}
-
-	if err := db.Migrate(); err != nil {
-		log.Fatalf("Migration Error: %v", err)
-	}
-
-	lis, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
-	s := grpc.NewServer()
-	pb.RegisterLogServiceServer(s, &server{})
-
-	fmt.Println("gRPC Server listening on port 50051...")
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
 }
