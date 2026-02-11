@@ -19,6 +19,14 @@ message LogEntry {
   uint32 status = 6;
   string method = 7;
   string path = 8;
+  uint32 tid = 9;
+  sint32 fd = 10;
+  uint64 cgroup_id = 11;
+  string node = 12;
+  string namespace = 13;
+  string pod = 14;
+  string container = 15;
+  string container_id = 16;
 }
 
 message LogBatch {

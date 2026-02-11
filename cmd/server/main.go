@@ -2,26 +2,23 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/emresahna/heimdall/internal/api"
 	"github.com/emresahna/heimdall/internal/config"
+	pb "github.com/emresahna/heimdall/internal/sender"
 	"github.com/emresahna/heimdall/internal/storage"
 	"google.golang.org/grpc"
-
-	pb "github.com/emresahna/heimdall/internal/sender"
 )
-
-type Server struct {
-	pb.UnimplementedLogServiceServer
-	DB *storage.DB
-}
 
 func main() {
 	cfg := config.Load()
 
-	var err error
 	db, err := storage.NewClickHouse(storage.Config{
 		Addr:     cfg.ClickHouseConfig.Addr,
 		Database: cfg.ClickHouseConfig.DB,
@@ -36,43 +33,43 @@ func main() {
 		log.Fatalf("migration error: %v", err)
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	lis, err := net.Listen("tcp", ":"+cfg.Port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	sender := &Server{DB: db}
 	grpcServer := grpc.NewServer()
-	pb.RegisterLogServiceServer(grpcServer, sender)
+	pb.RegisterLogServiceServer(grpcServer, api.NewGrpcServer(db))
 
-	log.Printf("gRPC Server listening on port %s...\n", cfg.Port)
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
-}
-
-func (s *Server) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, error) {
-	logs := make([]storage.LogEntry, 0, len(req.Entries))
-	for _, entry := range req.Entries {
-		logs = append(logs, storage.LogEntry{
-			Timestamp:  entry.Timestamp.AsTime(),
-			Pid:        entry.Pid,
-			Type:       entry.Type,
-			Payload:    entry.Payload,
-			DurationNs: entry.DurationNs,
-			Status:     entry.Status,
-			Method:     entry.Method,
-			Path:       entry.Path,
-		})
+	httpServer := &http.Server{
+		Addr:    ":" + cfg.HTTPPort,
+		Handler: api.NewHttpServer(db).Handler(),
 	}
 
-	go func(data []storage.LogEntry) {
-		if err := s.DB.InsertBatch(data); err != nil {
-			log.Printf("Failed to write to DB: %v", err)
-		} else {
-			fmt.Printf("%d log received.\n", len(data))
+	go func() {
+		log.Printf("gRPC server listening on port %s", cfg.Port)
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Printf("gRPC server error: %v", err)
 		}
-	}(logs)
+	}()
 
-	return &pb.Response{Success: true, Message: "OK"}, nil
+	go func() {
+		log.Printf("HTTP server listening on port %s", cfg.HTTPPort)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	grpcServer.GracefulStop()
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(
+		context.Background(),
+		cfg.HTTPShutdownTimeout,
+	)
+	defer cancelShutdown()
+	_ = httpServer.Shutdown(shutdownCtx)
 }

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heimdall</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="ambient"></div>
+    <main class="app">
+      <header class="hero">
+        <div class="brand">
+          <span class="brand-mark">Heimdall</span>
+          <span class="brand-sub">Cluster HTTP telemetry</span>
+        </div>
+        <div class="hero-meta">
+          <span class="pill">eBPF</span>
+          <span class="pill">ClickHouse</span>
+          <span class="pill">Kubernetes</span>
+        </div>
+      </header>
+
+      <section class="panel controls">
+        <div class="control-row">
+          <label>
+            From
+            <input id="from" type="datetime-local" step="1" />
+          </label>
+          <label>
+            To
+            <input id="to" type="datetime-local" step="1" />
+          </label>
+          <label>
+            Method
+            <input id="method" placeholder="GET" />
+          </label>
+          <label>
+            Status
+            <input id="status" placeholder="200" />
+          </label>
+        </div>
+        <div class="control-row">
+          <label>
+            Namespace
+            <input id="namespace" placeholder="default" />
+          </label>
+          <label>
+            Pod
+            <input id="pod" placeholder="api-" />
+          </label>
+          <label class="path">
+            Path
+            <input id="path" placeholder="/v1/orders" />
+          </label>
+          <button id="refresh">Search</button>
+        </div>
+      </section>
+
+      <section class="panel stats">
+        <div class="stat">
+          <div class="stat-label">Requests</div>
+          <div class="stat-value" id="stat-count">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">P95 Latency</div>
+          <div class="stat-value" id="stat-p95">0 ms</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Error Rate</div>
+          <div class="stat-value" id="stat-error">0%</div>
+        </div>
+      </section>
+
+      <section class="panel chart">
+        <div class="panel-title">Traffic (per minute)</div>
+        <canvas id="chart" height="140"></canvas>
+      </section>
+
+      <section class="panel table">
+        <div class="panel-title">Recent Requests</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Method</th>
+                <th>Path</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Namespace</th>
+                <th>Pod</th>
+                <th>Node</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

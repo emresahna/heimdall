@@ -32,6 +32,14 @@ type LogEntry struct {
 	Status        uint32                 `protobuf:"varint,6,opt,name=status,proto3" json:"status,omitempty"`
 	Method        string                 `protobuf:"bytes,7,opt,name=method,proto3" json:"method,omitempty"`
 	Path          string                 `protobuf:"bytes,8,opt,name=path,proto3" json:"path,omitempty"`
+	Tid           uint32                 `protobuf:"varint,9,opt,name=tid,proto3" json:"tid,omitempty"`
+	Fd            int32                  `protobuf:"zigzag32,10,opt,name=fd,proto3" json:"fd,omitempty"`
+	CgroupId      uint64                 `protobuf:"varint,11,opt,name=cgroup_id,json=cgroupId,proto3" json:"cgroup_id,omitempty"`
+	Node          string                 `protobuf:"bytes,12,opt,name=node,proto3" json:"node,omitempty"`
+	Namespace     string                 `protobuf:"bytes,13,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Pod           string                 `protobuf:"bytes,14,opt,name=pod,proto3" json:"pod,omitempty"`
+	Container     string                 `protobuf:"bytes,15,opt,name=container,proto3" json:"container,omitempty"`
+	ContainerId   string                 `protobuf:"bytes,16,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -118,6 +126,62 @@ func (x *LogEntry) GetMethod() string {
 func (x *LogEntry) GetPath() string {
 	if x != nil {
 		return x.Path
+	}
+	return ""
+}
+
+func (x *LogEntry) GetTid() uint32 {
+	if x != nil {
+		return x.Tid
+	}
+	return 0
+}
+
+func (x *LogEntry) GetFd() int32 {
+	if x != nil {
+		return x.Fd
+	}
+	return 0
+}
+
+func (x *LogEntry) GetCgroupId() uint64 {
+	if x != nil {
+		return x.CgroupId
+	}
+	return 0
+}
+
+func (x *LogEntry) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *LogEntry) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *LogEntry) GetPod() string {
+	if x != nil {
+		return x.Pod
+	}
+	return ""
+}
+
+func (x *LogEntry) GetContainer() string {
+	if x != nil {
+		return x.Container
+	}
+	return ""
+}
+
+func (x *LogEntry) GetContainerId() string {
+	if x != nil {
+		return x.ContainerId
 	}
 	return ""
 }
@@ -222,7 +286,7 @@ var File_internal_sender_log_proto protoreflect.FileDescriptor
 
 const file_internal_sender_log_proto_rawDesc = "" +
 	"\n" +
-	"\x19internal/sender/log.proto\x12\x03log\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe9\x01\n" +
+	"\x19internal/sender/log.proto\x12\x03log\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x03\n" +
 	"\bLogEntry\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x10\n" +
 	"\x03pid\x18\x02 \x01(\rR\x03pid\x12\x12\n" +
@@ -232,7 +296,16 @@ const file_internal_sender_log_proto_rawDesc = "" +
 	"durationNs\x12\x16\n" +
 	"\x06status\x18\x06 \x01(\rR\x06status\x12\x16\n" +
 	"\x06method\x18\a \x01(\tR\x06method\x12\x12\n" +
-	"\x04path\x18\b \x01(\tR\x04path\"3\n" +
+	"\x04path\x18\b \x01(\tR\x04path\x12\x10\n" +
+	"\x03tid\x18\t \x01(\rR\x03tid\x12\x0e\n" +
+	"\x02fd\x18\n" +
+	" \x01(\x11R\x02fd\x12\x1b\n" +
+	"\tcgroup_id\x18\v \x01(\x04R\bcgroupId\x12\x12\n" +
+	"\x04node\x18\f \x01(\tR\x04node\x12\x1c\n" +
+	"\tnamespace\x18\r \x01(\tR\tnamespace\x12\x10\n" +
+	"\x03pod\x18\x0e \x01(\tR\x03pod\x12\x1c\n" +
+	"\tcontainer\x18\x0f \x01(\tR\tcontainer\x12!\n" +
+	"\fcontainer_id\x18\x10 \x01(\tR\vcontainerId\"3\n" +
 	"\bLogBatch\x12'\n" +
 	"\aentries\x18\x01 \x03(\v2\r.log.LogEntryR\aentries\">\n" +
 	"\bResponse\x12\x18\n" +

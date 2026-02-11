@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler \
     bpftool
 
+RUN go install github.com/cilium/ebpf/cmd/bpf2go@v0.20.0
+
 WORKDIR /app
 
 COPY go.mod go.sum ./
