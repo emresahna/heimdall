@@ -4,6 +4,7 @@ linters:
   disable:
     - wsl
     - nlreturn
+    - depguard
 
 formatters:
   enable:
