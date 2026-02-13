@@ -9,9 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/emresahna/heimdall/internal/api"
 	"github.com/emresahna/heimdall/internal/config"
 	pb "github.com/emresahna/heimdall/internal/sender"
+	"github.com/emresahna/heimdall/internal/server"
 	"github.com/emresahna/heimdall/internal/storage"
 	"google.golang.org/grpc"
 )
@@ -42,11 +42,11 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterLogServiceServer(grpcServer, api.NewGrpcServer(db))
+	pb.RegisterLogServiceServer(grpcServer, server.NewGrpcServer(db))
 
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.HTTPPort,
-		Handler: api.NewHttpServer(db).Handler(),
+		Handler: server.NewHttpServer(db).Handler(),
 	}
 
 	go func() {

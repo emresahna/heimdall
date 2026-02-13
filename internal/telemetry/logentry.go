@@ -1,4 +1,4 @@
-package model
+package telemetry
 
 import "time"
 

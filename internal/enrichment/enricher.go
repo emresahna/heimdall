@@ -1,4 +1,4 @@
-package agent
+package enrichment
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/emresahna/heimdall/internal/model"
+	"github.com/emresahna/heimdall/internal/telemetry"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -21,14 +21,19 @@ import (
 )
 
 type Enricher interface {
-	Enrich(ctx context.Context, pid uint32, cgroupID uint64, entry *model.LogEntry)
+	Enrich(ctx context.Context, pid uint32, cgroupID uint64, entry *telemetry.LogEntry)
 }
 
 type NoopEnricher struct {
 	node string
 }
 
-func (e NoopEnricher) Enrich(_ context.Context, _ uint32, cgroupID uint64, entry *model.LogEntry) {
+func (e NoopEnricher) Enrich(
+	_ context.Context,
+	_ uint32,
+	cgroupID uint64,
+	entry *telemetry.LogEntry,
+) {
 	entry.Node = e.node
 	entry.CgroupID = cgroupID
 }
@@ -119,7 +124,7 @@ func (e *K8sEnricher) Enrich(
 	_ context.Context,
 	pid uint32,
 	cgroupID uint64,
-	entry *model.LogEntry,
+	entry *telemetry.LogEntry,
 ) {
 	entry.Node = e.node
 	entry.CgroupID = cgroupID

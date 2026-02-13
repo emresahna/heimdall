@@ -8,7 +8,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/emresahna/heimdall/internal/model"
+	"github.com/emresahna/heimdall/internal/telemetry"
 )
 
 type Config struct {
@@ -95,7 +95,7 @@ func (db *DB) Migrate() error {
 	return nil
 }
 
-func (db *DB) InsertBatch(logs []model.LogEntry) error {
+func (db *DB) InsertBatch(logs []telemetry.LogEntry) error {
 	if len(logs) == 0 {
 		return nil
 	}
@@ -150,7 +150,7 @@ type QueryFilter struct {
 	Path      string
 }
 
-func (db *DB) QueryLogs(ctx context.Context, f QueryFilter) ([]model.LogEntry, error) {
+func (db *DB) QueryLogs(ctx context.Context, f QueryFilter) ([]telemetry.LogEntry, error) {
 	conditions := []string{"timestamp >= ?", "timestamp <= ?"}
 	args := []any{f.From, f.To}
 
@@ -192,9 +192,9 @@ func (db *DB) QueryLogs(ctx context.Context, f QueryFilter) ([]model.LogEntry, e
 	}
 	defer rows.Close()
 
-	var entries []model.LogEntry
+	var entries []telemetry.LogEntry
 	for rows.Next() {
-		var entry model.LogEntry
+		var entry telemetry.LogEntry
 		if err := rows.Scan(
 			&entry.Timestamp,
 			&entry.Pid,

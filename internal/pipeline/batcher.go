@@ -1,26 +1,34 @@
-package agent
+package pipeline
 
 import (
 	"context"
 	"log"
 	"time"
 
-	"github.com/emresahna/heimdall/internal/model"
+	"github.com/emresahna/heimdall/internal/telemetry"
+	"github.com/emresahna/heimdall/internal/transport"
 )
 
 const (
-	defaultBatchSize     = 200 * time.Millisecond
+	defaultRetryBackoff  = 200 * time.Millisecond
 	defaultFlushInterval = 2 * time.Second
 )
 
 type Batcher struct {
-	in            chan model.LogEntry
+	in            chan telemetry.LogEntry
 	batchSize     int
 	flushInterval time.Duration
-	sender        Sender
+	sender        transport.Sender
+	diagnostics   *Diagnostics
 }
 
-func NewBatcher(batchSize int, flushInterval time.Duration, maxQueue int, sender Sender) *Batcher {
+func NewBatcher(
+	batchSize int,
+	flushInterval time.Duration,
+	maxQueue int,
+	sender transport.Sender,
+	diagnostics *Diagnostics,
+) *Batcher {
 	if batchSize <= 0 {
 		batchSize = 200
 	}
@@ -32,17 +40,21 @@ func NewBatcher(batchSize int, flushInterval time.Duration, maxQueue int, sender
 	}
 
 	return &Batcher{
-		in:            make(chan model.LogEntry, maxQueue),
+		in:            make(chan telemetry.LogEntry, maxQueue),
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
 		sender:        sender,
+		diagnostics:   diagnostics,
 	}
 }
 
-func (b *Batcher) Enqueue(entry model.LogEntry) {
+func (b *Batcher) Enqueue(entry telemetry.LogEntry) {
 	select {
 	case b.in <- entry:
 	default:
+		if b.diagnostics != nil {
+			b.diagnostics.IncEnqueueDrops()
+		}
 		log.Printf("batch queue full, dropping log")
 	}
 }
@@ -51,7 +63,7 @@ func (b *Batcher) Run(ctx context.Context) {
 	ticker := time.NewTicker(b.flushInterval)
 	defer ticker.Stop()
 
-	batch := make([]model.LogEntry, 0, b.batchSize)
+	batch := make([]telemetry.LogEntry, 0, b.batchSize)
 
 	flush := func() {
 		if len(batch) == 0 {
@@ -79,14 +91,20 @@ func (b *Batcher) Run(ctx context.Context) {
 	}
 }
 
-func (b *Batcher) sendWithRetry(ctx context.Context, batch []model.LogEntry) error {
+func (b *Batcher) sendWithRetry(ctx context.Context, batch []telemetry.LogEntry) error {
 	var err error
-	backoff := defaultBatchSize
+	backoff := defaultRetryBackoff
 
 	for attempt := 0; attempt < 3; attempt++ {
 		err = b.sender.Send(ctx, batch)
 		if err == nil {
+			if b.diagnostics != nil {
+				b.diagnostics.IncBatchesSent()
+			}
 			return nil
+		}
+		if b.diagnostics != nil {
+			b.diagnostics.IncSendFailures()
 		}
 		select {
 		case <-ctx.Done():

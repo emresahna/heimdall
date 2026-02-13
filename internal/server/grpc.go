@@ -1,12 +1,12 @@
-package api
+package server
 
 import (
 	"context"
 	"log"
 
-	"github.com/emresahna/heimdall/internal/model"
 	pb "github.com/emresahna/heimdall/internal/sender"
 	"github.com/emresahna/heimdall/internal/storage"
+	"github.com/emresahna/heimdall/internal/telemetry"
 )
 
 type GrpcServer struct {
@@ -20,9 +20,9 @@ func NewGrpcServer(db *storage.DB) *GrpcServer {
 }
 
 func (s *GrpcServer) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, error) {
-	logs := make([]model.LogEntry, 0, len(req.Entries))
+	logs := make([]telemetry.LogEntry, 0, len(req.Entries))
 	for _, entry := range req.Entries {
-		logs = append(logs, model.LogEntry{
+		logs = append(logs, telemetry.LogEntry{
 			Timestamp:   entry.Timestamp.AsTime(),
 			Pid:         entry.Pid,
 			Tid:         entry.Tid,

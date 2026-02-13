@@ -3,83 +3,106 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Heimdall</title>
+    <title>Heimdall Observability</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="ambient"></div>
-    <main class="app">
-      <header class="hero">
-        <div class="brand">
-          <span class="brand-mark">Heimdall</span>
-          <span class="brand-sub">Cluster HTTP telemetry</span>
+    <div class="bg-layer" aria-hidden="true"></div>
+    <main class="layout">
+      <header class="topbar panel">
+        <div>
+          <p class="eyebrow">Cluster Network Intelligence</p>
+          <h1>Heimdall Observability Console</h1>
+          <p class="subtitle">Real-time HTTP telemetry captured through eBPF and indexed in ClickHouse.</p>
         </div>
-        <div class="hero-meta">
-          <span class="pill">eBPF</span>
-          <span class="pill">ClickHouse</span>
-          <span class="pill">Kubernetes</span>
+        <div class="chip-row" aria-label="stack labels">
+          <span class="chip">eBPF Agent</span>
+          <span class="chip">gRPC Ingest</span>
+          <span class="chip">ClickHouse</span>
         </div>
       </header>
 
-      <section class="panel controls">
-        <div class="control-row">
+      <section id="state-banner" class="state-banner hidden" role="status" aria-live="polite"></section>
+
+      <section class="panel stats-panel">
+        <article class="metric">
+          <p class="metric-label">Requests</p>
+          <p class="metric-value" id="stat-count">0</p>
+        </article>
+        <article class="metric">
+          <p class="metric-label">P95 Latency</p>
+          <p class="metric-value" id="stat-p95">0.0 ms</p>
+        </article>
+        <article class="metric">
+          <p class="metric-label">Error Rate</p>
+          <p class="metric-value" id="stat-error">0.0%</p>
+        </article>
+        <article class="metric metric-refresh">
+          <p class="metric-label">Auto Refresh</p>
+          <label class="switch">
+            <input id="auto-refresh" type="checkbox" checked />
+            <span class="slider" aria-hidden="true"></span>
+            <span class="switch-text">10s</span>
+          </label>
+          <p class="updated-at" id="last-updated">Never</p>
+        </article>
+      </section>
+
+      <section class="panel filters-panel">
+        <div class="panel-head">
+          <h2>Query Filters</h2>
+          <button id="refresh" type="button">Run Query</button>
+        </div>
+        <div class="filter-grid">
           <label>
-            From
+            <span>From</span>
             <input id="from" type="datetime-local" step="1" />
           </label>
           <label>
-            To
+            <span>To</span>
             <input id="to" type="datetime-local" step="1" />
           </label>
           <label>
-            Method
+            <span>Method</span>
             <input id="method" placeholder="GET" />
           </label>
           <label>
-            Status
+            <span>Status</span>
             <input id="status" placeholder="200" />
           </label>
-        </div>
-        <div class="control-row">
           <label>
-            Namespace
+            <span>Namespace</span>
             <input id="namespace" placeholder="default" />
           </label>
           <label>
-            Pod
+            <span>Pod</span>
             <input id="pod" placeholder="api-" />
           </label>
-          <label class="path">
-            Path
+          <label class="path-field">
+            <span>Path</span>
             <input id="path" placeholder="/v1/orders" />
           </label>
-          <button id="refresh">Search</button>
         </div>
       </section>
 
-      <section class="panel stats">
-        <div class="stat">
-          <div class="stat-label">Requests</div>
-          <div class="stat-value" id="stat-count">0</div>
+      <section class="panel chart-panel">
+        <div class="panel-head">
+          <h2>Traffic Per Minute</h2>
+          <p class="panel-note" id="result-meta">0 entries</p>
         </div>
-        <div class="stat">
-          <div class="stat-label">P95 Latency</div>
-          <div class="stat-value" id="stat-p95">0 ms</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Error Rate</div>
-          <div class="stat-value" id="stat-error">0%</div>
-        </div>
+        <canvas id="chart" height="180"></canvas>
       </section>
 
-      <section class="panel chart">
-        <div class="panel-title">Traffic (per minute)</div>
-        <canvas id="chart" height="140"></canvas>
-      </section>
+      <section class="panel table-panel">
+        <div class="panel-head">
+          <h2>Recent Requests</h2>
+        </div>
 
-      <section class="panel table">
-        <div class="panel-title">Recent Requests</div>
-        <div class="table-wrap">
+        <div id="loading-state" class="data-state hidden">Loading telemetry...</div>
+        <div id="empty-state" class="data-state hidden">No request data found for the selected range.</div>
+        <div id="error-state" class="data-state hidden">Failed to load telemetry data. Check agent/server logs and try again.</div>
+
+        <div class="table-wrap" id="table-wrap">
           <table>
             <thead>
               <tr>

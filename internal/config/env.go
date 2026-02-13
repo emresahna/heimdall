@@ -23,13 +23,14 @@ type ClickHouseConfig struct {
 }
 
 type AgentConfig struct {
-	BatchSize       int
-	FlushInterval   time.Duration
-	MaxQueue        int
-	K8sEnrich       bool
-	HTTPSampleBytes int
-	CorrelatorTTL   time.Duration
-	NodeName        string
+	BatchSize           int
+	FlushInterval       time.Duration
+	MaxQueue            int
+	K8sEnrich           bool
+	HTTPSampleBytes     int
+	CorrelatorTTL       time.Duration
+	DiagnosticsInterval time.Duration
+	NodeName            string
 }
 
 func Load() Config {
@@ -52,13 +53,14 @@ func Load() Config {
 			DB:       getEnv("CLICKHOUSE_DB", "default"),
 		},
 		Agent: AgentConfig{
-			BatchSize:       getEnvInt("AGENT_BATCH_SIZE", 200),
-			FlushInterval:   getEnvDuration("AGENT_FLUSH_INTERVAL", 2*time.Second),
-			MaxQueue:        getEnvInt("AGENT_MAX_QUEUE", 5000),
-			K8sEnrich:       getEnvBool("AGENT_K8S_ENRICH", false),
-			HTTPSampleBytes: getEnvInt("AGENT_HTTP_SAMPLE_BYTES", 128),
-			CorrelatorTTL:   getEnvDuration("AGENT_CORRELATOR_TTL", 30*time.Second),
-			NodeName:        nodeName,
+			BatchSize:           getEnvInt("AGENT_BATCH_SIZE", 200),
+			FlushInterval:       getEnvDuration("AGENT_FLUSH_INTERVAL", 2*time.Second),
+			MaxQueue:            getEnvInt("AGENT_MAX_QUEUE", 5000),
+			K8sEnrich:           getEnvBool("AGENT_K8S_ENRICH", false),
+			HTTPSampleBytes:     getEnvInt("AGENT_HTTP_SAMPLE_BYTES", 128),
+			CorrelatorTTL:       getEnvDuration("AGENT_CORRELATOR_TTL", 30*time.Second),
+			DiagnosticsInterval: getEnvDuration("AGENT_DIAGNOSTICS_INTERVAL", 15*time.Second),
+			NodeName:            nodeName,
 		},
 	}
 }

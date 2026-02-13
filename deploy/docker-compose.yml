@@ -61,6 +61,7 @@ services:
       - SERVER_ADDR=server:50051
       - NODE_NAME=local
       - AGENT_K8S_ENRICH=false
+      - AGENT_DIAGNOSTICS_INTERVAL=15s
     depends_on:
       - server
     networks:
