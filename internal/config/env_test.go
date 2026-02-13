@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestLoadDefaults(t *testing.T) {
@@ -17,12 +18,16 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Agent.BatchSize <= 0 {
 		t.Fatalf("expected default batch size")
 	}
+	if cfg.Agent.DiagnosticsInterval != 15*time.Second {
+		t.Fatalf("expected default diagnostics interval")
+	}
 }
 
 func TestLoadOverrides(t *testing.T) {
 	t.Setenv("PORT", "6000")
 	t.Setenv("HTTP_PORT", "9000")
 	t.Setenv("AGENT_BATCH_SIZE", "10")
+	t.Setenv("AGENT_DIAGNOSTICS_INTERVAL", "5s")
 
 	cfg := Load()
 	if cfg.Port != "6000" {
@@ -33,6 +38,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.Agent.BatchSize != 10 {
 		t.Fatalf("expected AGENT_BATCH_SIZE override")
+	}
+	if cfg.Agent.DiagnosticsInterval != 5*time.Second {
+		t.Fatalf("expected AGENT_DIAGNOSTICS_INTERVAL override")
 	}
 }
 

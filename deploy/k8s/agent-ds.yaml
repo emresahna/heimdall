@@ -31,6 +31,8 @@ spec:
               fieldPath: spec.nodeName
         - name: AGENT_K8S_ENRICH
           value: "true"
+        - name: AGENT_DIAGNOSTICS_INTERVAL
+          value: "15s"
         volumeMounts:
         - name: debugfs
           mountPath: /sys/kernel/debug

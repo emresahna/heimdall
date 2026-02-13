@@ -43,13 +43,6 @@ struct {
 	__type(value, struct read_args_t);
 } pending_reads SEC(".maps");
 
-struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__uint(max_entries, 1);
-	__type(key, u32);
-	__type(value, struct event_t);
-} event_scratch SEC(".maps");
-
 static __always_inline int is_http_request(const char *buf) {
 	if (buf[0] == 'G' && buf[1] == 'E' && buf[2] == 'T' && buf[3] == ' ') return 1;
 	if (buf[0] == 'P' && buf[1] == 'O' && buf[2] == 'S' && buf[3] == 'T') return 1;
@@ -143,6 +136,41 @@ int trace_sendto_entry(struct trace_event_raw_sys_enter *ctx) {
 	}
 
 	return emit_event(buf, count, fd, EVENT_REQUEST);
+}
+
+SEC("tracepoint/syscalls/sys_enter_writev")
+int trace_writev_entry(struct trace_event_raw_sys_enter *ctx) {
+    s32 fd = (s32)ctx->args[0];
+    void *iov_ptr = (void *)ctx->args[1];
+    size_t vlen = (size_t)ctx->args[2];
+    
+    struct iovec iov;
+    char prefix[8] = {};
+
+    if (vlen == 0) {
+        return 0;
+    }
+
+    if (bpf_probe_read_user(&iov, sizeof(iov), iov_ptr) != 0) {
+        return 0;
+    }
+
+    if (iov.iov_len < 4) {
+        return 0;
+    }
+
+    if (bpf_probe_read_user(prefix, sizeof(prefix), iov.iov_base) != 0) {
+        return 0;
+    }
+
+	int is_req = is_http_request(prefix);
+	int is_res = is_http_response(prefix);
+
+    if (is_req || is_res) {
+        return emit_event((const char *)iov.iov_base, iov.iov_len, fd, is_req ? EVENT_REQUEST : EVENT_RESPONSE);
+    }
+
+    return 0;
 }
 
 SEC("tracepoint/syscalls/sys_enter_read")

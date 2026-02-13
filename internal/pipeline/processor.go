@@ -1,54 +1,66 @@
-package agent
+package pipeline
 
 import (
 	"context"
 	"time"
 
 	"github.com/emresahna/heimdall/internal/collector"
-	"github.com/emresahna/heimdall/internal/model"
+	"github.com/emresahna/heimdall/internal/correlation"
+	"github.com/emresahna/heimdall/internal/enrichment"
+	"github.com/emresahna/heimdall/internal/httpparse"
+	"github.com/emresahna/heimdall/internal/telemetry"
 )
 
 const maintenanceInterval = 10 * time.Second
 
 type Processor struct {
-	ctx        context.Context
-	correlator *Correlator
-	enricher   Enricher
-	batcher    *Batcher
-	node       string
-	sampleMax  int
+	ctx         context.Context
+	correlator  *correlation.Correlator
+	enricher    enrichment.Enricher
+	batcher     *Batcher
+	node        string
+	sampleMax   int
+	diagnostics *Diagnostics
 }
 
 func NewProcessor(
 	ctx context.Context,
-	correlator *Correlator,
-	enricher Enricher,
+	correlator *correlation.Correlator,
+	enricher enrichment.Enricher,
 	batcher *Batcher,
 	node string,
 	sampleMax int,
+	diagnostics *Diagnostics,
 ) *Processor {
 	return &Processor{
-		ctx:        ctx,
-		correlator: correlator,
-		enricher:   enricher,
-		batcher:    batcher,
-		node:       node,
-		sampleMax:  sampleMax,
+		ctx:         ctx,
+		correlator:  correlator,
+		enricher:    enricher,
+		batcher:     batcher,
+		node:        node,
+		sampleMax:   sampleMax,
+		diagnostics: diagnostics,
 	}
 }
 
 func (p *Processor) HandleEvent(ev collector.Event) {
+	if p.diagnostics != nil {
+		p.diagnostics.IncEventsRead()
+	}
 	if p.sampleMax > 0 && len(ev.Data) > p.sampleMax {
 		ev.Data = ev.Data[:p.sampleMax]
 	}
 	switch ev.Direction {
 	case collector.DirectionRequest:
-		method, path, ok := ParseRequestLine(ev.Data)
+		method, path, ok := httpparse.ParseRequestLine(ev.Data)
 		if !ok {
 			return
 		}
-		p.correlator.Add(requestEntry{
-			Key: requestKey{
+		if p.diagnostics != nil {
+			p.diagnostics.IncParsedRequests()
+		}
+		p.correlator.Add(correlation.Request{
+			Key: correlation.RequestKey{
 				Pid: ev.Pid,
 				Fd:  ev.Fd,
 			},
@@ -59,13 +71,22 @@ func (p *Processor) HandleEvent(ev collector.Event) {
 			Started:  ev.Timestamp,
 		})
 	case collector.DirectionResponse:
-		status, ok := ParseResponseLine(ev.Data)
+		status, ok := httpparse.ParseResponseLine(ev.Data)
 		if !ok {
 			return
 		}
+		if p.diagnostics != nil {
+			p.diagnostics.IncParsedResponses()
+		}
 		req, ok := p.correlator.Match(ev.Pid, ev.Fd)
 		if !ok {
+			if p.diagnostics != nil {
+				p.diagnostics.IncUnmatchedResponses()
+			}
 			return
+		}
+		if p.diagnostics != nil {
+			p.diagnostics.IncMatchedResponses()
 		}
 
 		duration := ev.Timestamp.Sub(req.Started)
@@ -73,7 +94,7 @@ func (p *Processor) HandleEvent(ev collector.Event) {
 			duration = 0
 		}
 
-		entry := model.LogEntry{
+		entry := telemetry.LogEntry{
 			Timestamp:  req.Started,
 			Pid:        req.Key.Pid,
 			Tid:        req.Tid,

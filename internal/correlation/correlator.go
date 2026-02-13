@@ -1,17 +1,17 @@
-package agent
+package correlation
 
 import (
 	"sync"
 	"time"
 )
 
-type requestKey struct {
+type RequestKey struct {
 	Pid uint32
 	Fd  int32
 }
 
-type requestEntry struct {
-	Key      requestKey
+type Request struct {
+	Key      RequestKey
 	Tid      uint32
 	CgroupID uint64
 	Method   string
@@ -22,26 +22,26 @@ type requestEntry struct {
 type Correlator struct {
 	mu       sync.Mutex
 	ttl      time.Duration
-	requests map[requestKey]requestEntry
+	requests map[RequestKey]Request
 }
 
 func NewCorrelator(ttl time.Duration) *Correlator {
 	return &Correlator{
 		ttl:      ttl,
-		requests: make(map[requestKey]requestEntry),
+		requests: make(map[RequestKey]Request),
 	}
 }
 
-func (c *Correlator) Add(req requestEntry) {
+func (c *Correlator) Add(req Request) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.requests[req.Key] = req
 }
 
-func (c *Correlator) Match(pid uint32, fd int32) (requestEntry, bool) {
+func (c *Correlator) Match(pid uint32, fd int32) (Request, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	key := requestKey{Pid: pid, Fd: fd}
+	key := RequestKey{Pid: pid, Fd: fd}
 	req, ok := c.requests[key]
 	if ok {
 		delete(c.requests, key)

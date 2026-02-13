@@ -1,4 +1,4 @@
-package agent
+package correlation
 
 import (
 	"testing"
@@ -7,8 +7,8 @@ import (
 
 func TestCorrelatorMatch(t *testing.T) {
 	corr := NewCorrelator(5 * time.Second)
-	req := requestEntry{
-		Key:     requestKey{Pid: 1, Fd: 3},
+	req := Request{
+		Key:     RequestKey{Pid: 1, Fd: 3},
 		Method:  "GET",
 		Path:    "/healthz",
 		Started: time.Now(),
@@ -26,8 +26,8 @@ func TestCorrelatorMatch(t *testing.T) {
 
 func TestCorrelatorExpire(t *testing.T) {
 	corr := NewCorrelator(1 * time.Second)
-	req := requestEntry{
-		Key:     requestKey{Pid: 2, Fd: 5},
+	req := Request{
+		Key:     RequestKey{Pid: 2, Fd: 5},
 		Started: time.Now().Add(-2 * time.Second),
 	}
 	corr.Add(req)
