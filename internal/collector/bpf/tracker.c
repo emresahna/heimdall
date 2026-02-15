@@ -24,7 +24,7 @@ struct event_t {
 	u8 event_type;
 	u8 _pad[3];
 	char data[MAX_DATA];
-};
+} __attribute__((preserve_access_index));
 
 struct read_args_t {
 	u64 buf;

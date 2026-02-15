@@ -37,6 +37,7 @@ type Collector struct {
 	objs       TrackerObjects
 	tpWrite    link.Link
 	tpSend     link.Link
+	tpWritev   link.Link
 	tpReadEnt  link.Link
 	tpReadExit link.Link
 	tpRecvEnt  link.Link
@@ -67,8 +68,17 @@ func New() (*Collector, error) {
 		return nil, fmt.Errorf("link sys_enter_sendto: %w", err)
 	}
 
+	tpWritev, err := link.Tracepoint("syscalls", "sys_enter_writev", objs.TraceWritevEntry, nil)
+	if err != nil {
+		tpWrite.Close()
+		tpSend.Close()
+		objs.Close()
+		return nil, fmt.Errorf("link sys_enter_writev: %w", err)
+	}
+
 	tpReadEnt, err := link.Tracepoint("syscalls", "sys_enter_read", objs.TraceReadEntry, nil)
 	if err != nil {
+		tpWritev.Close()
 		tpSend.Close()
 		tpWrite.Close()
 		objs.Close()
@@ -78,6 +88,7 @@ func New() (*Collector, error) {
 	tpReadExit, err := link.Tracepoint("syscalls", "sys_exit_read", objs.TraceReadExit, nil)
 	if err != nil {
 		tpReadEnt.Close()
+		tpWritev.Close()
 		tpSend.Close()
 		tpWrite.Close()
 		objs.Close()
@@ -88,6 +99,7 @@ func New() (*Collector, error) {
 	if err != nil {
 		tpReadExit.Close()
 		tpReadEnt.Close()
+		tpWritev.Close()
 		tpSend.Close()
 		tpWrite.Close()
 		objs.Close()
@@ -99,6 +111,7 @@ func New() (*Collector, error) {
 		tpRecvEnt.Close()
 		tpReadExit.Close()
 		tpReadEnt.Close()
+		tpWritev.Close()
 		tpSend.Close()
 		tpWrite.Close()
 		objs.Close()
@@ -111,6 +124,7 @@ func New() (*Collector, error) {
 		tpRecvEnt.Close()
 		tpReadExit.Close()
 		tpReadEnt.Close()
+		tpWritev.Close()
 		tpSend.Close()
 		tpWrite.Close()
 		objs.Close()
@@ -121,6 +135,7 @@ func New() (*Collector, error) {
 		objs:       objs,
 		tpWrite:    tpWrite,
 		tpSend:     tpSend,
+		tpWritev:   tpWritev,
 		tpReadEnt:  tpReadEnt,
 		tpReadExit: tpReadExit,
 		tpRecvEnt:  tpRecvEnt,
@@ -171,6 +186,9 @@ func (c *Collector) Close() {
 	}
 	if c.tpReadEnt != nil {
 		c.tpReadEnt.Close()
+	}
+	if c.tpWritev != nil {
+		c.tpWritev.Close()
 	}
 	if c.tpSend != nil {
 		c.tpSend.Close()
