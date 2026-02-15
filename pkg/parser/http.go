@@ -1,4 +1,4 @@
-package httpparse
+package parser
 
 import (
 	"bytes"

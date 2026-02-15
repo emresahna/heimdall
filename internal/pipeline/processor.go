@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/emresahna/heimdall/internal/collector"
 	"github.com/emresahna/heimdall/internal/correlation"
 	"github.com/emresahna/heimdall/internal/enrichment"
-	"github.com/emresahna/heimdall/internal/httpparse"
+	"github.com/emresahna/heimdall/internal/models"
 	"github.com/emresahna/heimdall/internal/telemetry"
+	"github.com/emresahna/heimdall/pkg/parser"
 )
 
 const maintenanceInterval = 10 * time.Second
@@ -43,7 +43,7 @@ func NewProcessor(
 	}
 }
 
-func (p *Processor) HandleEvent(ev collector.Event) {
+func (p *Processor) HandleEvent(ev models.Event) {
 	if p.diagnostics != nil {
 		p.diagnostics.IncEventsRead()
 	}
@@ -51,8 +51,8 @@ func (p *Processor) HandleEvent(ev collector.Event) {
 		ev.Data = ev.Data[:p.sampleMax]
 	}
 	switch ev.Direction {
-	case collector.DirectionRequest:
-		method, path, ok := httpparse.ParseRequestLine(ev.Data)
+	case models.DirectionRequest:
+		method, path, ok := parser.ParseRequestLine(ev.Data)
 		if !ok {
 			return
 		}
@@ -70,8 +70,8 @@ func (p *Processor) HandleEvent(ev collector.Event) {
 			Path:     path,
 			Started:  ev.Timestamp,
 		})
-	case collector.DirectionResponse:
-		status, ok := httpparse.ParseResponseLine(ev.Data)
+	case models.DirectionResponse:
+		status, ok := parser.ParseResponseLine(ev.Data)
 		if !ok {
 			return
 		}

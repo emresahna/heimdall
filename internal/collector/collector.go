@@ -1,37 +1,16 @@
 package collector
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/emresahna/heimdall/internal/models"
+	"github.com/emresahna/heimdall/pkg/parser"
 )
-
-const maxEventData = 128
-
-type Direction uint8
-
-const (
-	DirectionUnknown  Direction = 0
-	DirectionRequest  Direction = 1
-	DirectionResponse Direction = 2
-)
-
-type Event struct {
-	Timestamp time.Time
-	Pid       uint32
-	Tid       uint32
-	Fd        int32
-	CgroupID  uint64
-	Direction Direction
-	Data      []byte
-}
 
 type Collector struct {
 	objs       TrackerObjects
@@ -144,7 +123,7 @@ func New() (*Collector, error) {
 	}, nil
 }
 
-func (c *Collector) Run(ctx context.Context, handler func(Event)) error {
+func (c *Collector) Run(ctx context.Context, handler func(models.Event)) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -161,7 +140,7 @@ func (c *Collector) Run(ctx context.Context, handler func(Event)) error {
 			continue
 		}
 
-		event, err := parseEvent(record.RawSample)
+		event, err := parser.ParseEvent(record.RawSample)
 		if err != nil {
 			log.Printf("parse event error: %v", err)
 			continue
@@ -197,40 +176,4 @@ func (c *Collector) Close() {
 		c.tpWrite.Close()
 	}
 	c.objs.Close()
-}
-
-type bpfEvent struct {
-	TsNs      uint64
-	CgroupID  uint64
-	Pid       uint32
-	Tid       uint32
-	Fd        int32
-	DataLen   uint32
-	EventType uint8
-	_         [3]byte
-	Data      [maxEventData]byte
-}
-
-func parseEvent(raw []byte) (Event, error) {
-	var evt bpfEvent
-	if err := binary.Read(bytes.NewReader(raw), binary.LittleEndian, &evt); err != nil {
-		return Event{}, fmt.Errorf("binary read: %w", err)
-	}
-
-	dataLen := int(evt.DataLen)
-	if dataLen > maxEventData {
-		dataLen = maxEventData
-	}
-	data := make([]byte, dataLen)
-	copy(data, evt.Data[:dataLen])
-
-	return Event{
-		Timestamp: time.Unix(0, int64(evt.TsNs)),
-		Pid:       evt.Pid,
-		Tid:       evt.Tid,
-		Fd:        evt.Fd,
-		CgroupID:  evt.CgroupID,
-		Direction: Direction(evt.EventType),
-		Data:      bytes.TrimRight(data, "\x00"),
-	}, nil
 }
