@@ -34,11 +34,11 @@ func main() {
 	}
 	defer conn.Close()
 
-	collectorInstance, err := collector.New()
+	coll, err := collector.New()
 	if err != nil {
 		log.Fatalf("collector error: %v", err)
 	}
-	defer collectorInstance.Close()
+	defer coll.Close()
 
 	client := pb.NewLogServiceClient(conn)
 	sender := transport.NewGRPCSender(client)
@@ -74,12 +74,12 @@ func main() {
 	go processor.RunMaintenance(ctx, cfg.Agent.CorrelatorTTL)
 	go pipeline.StartDiagnosticsReporter(ctx, diagnostics, cfg.Agent.DiagnosticsInterval)
 	go func() {
-		if err := collectorInstance.Run(ctx, processor.HandleEvent); err != nil {
+		if err := coll.Run(ctx, processor.HandleEvent); err != nil {
 			log.Printf("collector stopped: %v", err)
 		}
 	}()
 
 	<-ctx.Done()
-	collectorInstance.Close()
+	coll.Close()
 	log.Println("agent shutting down")
 }
