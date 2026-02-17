@@ -78,7 +78,11 @@ func (d *Diagnostics) Snapshot() Snapshot {
 	}
 }
 
-func StartDiagnosticsReporter(ctx context.Context, diagnostics *Diagnostics, interval time.Duration) {
+func StartDiagnosticsReporter(
+	ctx context.Context,
+	diagnostics *Diagnostics,
+	interval time.Duration,
+) {
 	if diagnostics == nil || interval <= 0 {
 		return
 	}

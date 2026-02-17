@@ -1,4 +1,4 @@
-package parser
+package collector
 
 import (
 	"bytes"
@@ -18,7 +18,19 @@ var (
 	maxEventData = 128
 )
 
-func ParseEvent(raw []byte) (models.Event, error) {
+type rawEvent struct {
+	TsNs      uint64
+	CgroupID  uint64
+	Pid       uint32
+	Tid       uint32
+	Fd        int32
+	DataLen   uint32
+	EventType uint8
+	_         [3]byte
+	Data      [128]byte
+}
+
+func parseEvent(raw []byte) (models.Event, error) {
 	once.Do(func() {
 		var ts unix.Timespec
 		if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts); err != nil {
@@ -32,7 +44,7 @@ func ParseEvent(raw []byte) (models.Event, error) {
 		return models.Event{}, fmt.Errorf("parser not initialized: %w", initErr)
 	}
 
-	var rawEvt models.RawEvent
+	var rawEvt rawEvent
 	if err := binary.Read(bytes.NewReader(raw), binary.LittleEndian, &rawEvt); err != nil {
 		return models.Event{}, fmt.Errorf("binary read failed: %w", err)
 	}

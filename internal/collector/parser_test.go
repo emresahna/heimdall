@@ -1,4 +1,4 @@
-package parser
+package collector
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ func resetParserState() {
 	maxEventData = 128
 }
 
-func encodeRawEvent(t *testing.T, evt models.RawEvent) []byte {
+func encodeRawEvent(t *testing.T, evt rawEvent) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := binary.Write(&buf, binary.LittleEndian, evt); err != nil {
@@ -30,7 +30,7 @@ func encodeRawEvent(t *testing.T, evt models.RawEvent) []byte {
 func TestParseEventSuccess(t *testing.T) {
 	resetParserState()
 
-	var raw models.RawEvent
+	var raw rawEvent
 	raw.TsNs = uint64((45 * time.Second).Nanoseconds())
 	raw.CgroupID = 99
 	raw.Pid = 1234
@@ -40,12 +40,13 @@ func TestParseEventSuccess(t *testing.T) {
 	raw.EventType = uint8(models.DirectionRequest)
 	copy(raw.Data[:], []byte("GET /x\x00"))
 
-	evt, err := ParseEvent(encodeRawEvent(t, raw))
+	evt, err := parseEvent(encodeRawEvent(t, raw))
 	if err != nil {
-		t.Fatalf("ParseEvent returned error: %v", err)
+		t.Fatalf("parseEvent returned error: %v", err)
 	}
 
-	if evt.CgroupID != raw.CgroupID || evt.Pid != raw.Pid || evt.Tid != raw.Tid || evt.Fd != raw.Fd {
+	if evt.CgroupID != raw.CgroupID || evt.Pid != raw.Pid || evt.Tid != raw.Tid ||
+		evt.Fd != raw.Fd {
 		t.Fatalf("unexpected metadata parsed: %+v", evt)
 	}
 	if evt.Direction != models.DirectionRequest {
@@ -64,14 +65,14 @@ func TestParseEventSuccess(t *testing.T) {
 func TestParseEventClampsDataLength(t *testing.T) {
 	resetParserState()
 
-	var raw models.RawEvent
+	var raw rawEvent
 	raw.TsNs = uint64((2 * time.Second).Nanoseconds())
 	raw.DataLen = 512
 	copy(raw.Data[:], []byte(strings.Repeat("a", 128)))
 
-	evt, err := ParseEvent(encodeRawEvent(t, raw))
+	evt, err := parseEvent(encodeRawEvent(t, raw))
 	if err != nil {
-		t.Fatalf("ParseEvent returned error: %v", err)
+		t.Fatalf("parseEvent returned error: %v", err)
 	}
 
 	if len(evt.Data) != 128 {
@@ -82,7 +83,7 @@ func TestParseEventClampsDataLength(t *testing.T) {
 func TestParseEventBinaryReadError(t *testing.T) {
 	resetParserState()
 
-	_, err := ParseEvent([]byte{1, 2, 3, 4})
+	_, err := parseEvent([]byte{1, 2, 3, 4})
 	if err == nil {
 		t.Fatalf("expected error for malformed payload")
 	}
@@ -90,4 +91,3 @@ func TestParseEventBinaryReadError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
-

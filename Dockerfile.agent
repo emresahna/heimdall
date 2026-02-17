@@ -20,7 +20,7 @@ RUN go mod download
 COPY . .
 
 # Generate eBPF code
-RUN go generate ./internal/collector/...
+RUN GOOS=linux GOARCH=amd64 go generate ./internal/bpf/...
 
 # Build the agent
 RUN CGO_ENABLED=1 GOOS=linux go build -o agent ./cmd/agent

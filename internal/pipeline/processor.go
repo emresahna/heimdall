@@ -7,8 +7,6 @@ import (
 	"github.com/emresahna/heimdall/internal/correlation"
 	"github.com/emresahna/heimdall/internal/enrichment"
 	"github.com/emresahna/heimdall/internal/models"
-	"github.com/emresahna/heimdall/internal/telemetry"
-	"github.com/emresahna/heimdall/pkg/parser"
 )
 
 const maintenanceInterval = 10 * time.Second
@@ -52,7 +50,7 @@ func (p *Processor) HandleEvent(ev models.Event) {
 	}
 	switch ev.Direction {
 	case models.DirectionRequest:
-		method, path, ok := parser.ParseRequestLine(ev.Data)
+		method, path, ok := parseRequestLine(ev.Data)
 		if !ok {
 			return
 		}
@@ -71,7 +69,7 @@ func (p *Processor) HandleEvent(ev models.Event) {
 			Started:  ev.Timestamp,
 		})
 	case models.DirectionResponse:
-		status, ok := parser.ParseResponseLine(ev.Data)
+		status, ok := parseResponseLine(ev.Data)
 		if !ok {
 			return
 		}
@@ -94,7 +92,7 @@ func (p *Processor) HandleEvent(ev models.Event) {
 			duration = 0
 		}
 
-		entry := telemetry.LogEntry{
+		entry := models.LogEntry{
 			Timestamp:  req.Started,
 			Pid:        req.Key.Pid,
 			Tid:        req.Tid,

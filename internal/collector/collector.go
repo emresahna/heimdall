@@ -5,23 +5,44 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/emresahna/heimdall/internal/bpf"
 	"github.com/emresahna/heimdall/internal/models"
-	"github.com/emresahna/heimdall/pkg/parser"
 )
 
 type Collector struct {
-	objs       TrackerObjects
-	tpWrite    link.Link
-	tpSend     link.Link
-	tpWritev   link.Link
-	tpReadEnt  link.Link
-	tpReadExit link.Link
-	tpRecvEnt  link.Link
-	tpRecvExit link.Link
-	reader     *ringbuf.Reader
+	objs   bpf.TrackerObjects
+	links  []link.Link
+	reader *ringbuf.Reader
+}
+
+type LinkObj struct {
+	group string
+	name  string
+	prog  *ebpf.Program
+	opts  *link.TracepointOptions
+}
+
+func initializeLinkObjects(rawLinks []LinkObj) ([]link.Link, error) {
+	links := []link.Link{}
+	for _, rawLink := range rawLinks {
+		pSend, err := link.Tracepoint(rawLink.group, rawLink.name, rawLink.prog, rawLink.opts)
+		if err != nil {
+			closeLinkObjects(links)
+			return nil, err
+		}
+		links = append(links, pSend)
+	}
+	return links, nil
+}
+
+func closeLinkObjects(links []link.Link) {
+	for _, link := range links {
+		link.Close()
+	}
 }
 
 func New() (*Collector, error) {
@@ -29,97 +50,38 @@ func New() (*Collector, error) {
 		return nil, fmt.Errorf("locking err: %w", err)
 	}
 
-	var objs TrackerObjects
-	if err := LoadTrackerObjects(&objs, nil); err != nil {
+	var objs bpf.TrackerObjects
+	if err := bpf.LoadTrackerObjects(&objs, nil); err != nil {
 		return nil, fmt.Errorf("load objects: %w", err)
 	}
 
-	tpWrite, err := link.Tracepoint("syscalls", "sys_enter_write", objs.TraceWriteEntry, nil)
-	if err != nil {
-		objs.Close()
-		return nil, fmt.Errorf("link sys_enter_write: %w", err)
+	rawLinks := []LinkObj{
+		{"syscalls", "sys_enter_write", objs.TraceWriteEntry, nil},
+		{"syscalls", "sys_enter_sendto", objs.TraceSendtoEntry, nil},
+		{"syscalls", "sys_enter_writev", objs.TraceWritevEntry, nil},
+		{"syscalls", "sys_enter_read", objs.TraceReadEntry, nil},
+		{"syscalls", "sys_exit_read", objs.TraceReadExit, nil},
+		{"syscalls", "sys_enter_recvfrom", objs.TraceRecvEntry, nil},
+		{"syscalls", "sys_exit_recvfrom", objs.TraceRecvExit, nil},
 	}
 
-	tpSend, err := link.Tracepoint("syscalls", "sys_enter_sendto", objs.TraceSendtoEntry, nil)
+	links, err := initializeLinkObjects(rawLinks)
 	if err != nil {
-		tpWrite.Close()
 		objs.Close()
-		return nil, fmt.Errorf("link sys_enter_sendto: %w", err)
-	}
-
-	tpWritev, err := link.Tracepoint("syscalls", "sys_enter_writev", objs.TraceWritevEntry, nil)
-	if err != nil {
-		tpWrite.Close()
-		tpSend.Close()
-		objs.Close()
-		return nil, fmt.Errorf("link sys_enter_writev: %w", err)
-	}
-
-	tpReadEnt, err := link.Tracepoint("syscalls", "sys_enter_read", objs.TraceReadEntry, nil)
-	if err != nil {
-		tpWritev.Close()
-		tpSend.Close()
-		tpWrite.Close()
-		objs.Close()
-		return nil, fmt.Errorf("link sys_enter_read: %w", err)
-	}
-
-	tpReadExit, err := link.Tracepoint("syscalls", "sys_exit_read", objs.TraceReadExit, nil)
-	if err != nil {
-		tpReadEnt.Close()
-		tpWritev.Close()
-		tpSend.Close()
-		tpWrite.Close()
-		objs.Close()
-		return nil, fmt.Errorf("link sys_exit_read: %w", err)
-	}
-
-	tpRecvEnt, err := link.Tracepoint("syscalls", "sys_enter_recvfrom", objs.TraceRecvEntry, nil)
-	if err != nil {
-		tpReadExit.Close()
-		tpReadEnt.Close()
-		tpWritev.Close()
-		tpSend.Close()
-		tpWrite.Close()
-		objs.Close()
-		return nil, fmt.Errorf("link sys_enter_recvfrom: %w", err)
-	}
-
-	tpRecvExit, err := link.Tracepoint("syscalls", "sys_exit_recvfrom", objs.TraceRecvExit, nil)
-	if err != nil {
-		tpRecvEnt.Close()
-		tpReadExit.Close()
-		tpReadEnt.Close()
-		tpWritev.Close()
-		tpSend.Close()
-		tpWrite.Close()
-		objs.Close()
-		return nil, fmt.Errorf("link sys_exit_recvfrom: %w", err)
+		return nil, err
 	}
 
 	reader, err := ringbuf.NewReader(objs.Events)
 	if err != nil {
-		tpRecvExit.Close()
-		tpRecvEnt.Close()
-		tpReadExit.Close()
-		tpReadEnt.Close()
-		tpWritev.Close()
-		tpSend.Close()
-		tpWrite.Close()
 		objs.Close()
+		closeLinkObjects(links)
 		return nil, fmt.Errorf("open ringbuf reader: %w", err)
 	}
 
 	return &Collector{
-		objs:       objs,
-		tpWrite:    tpWrite,
-		tpSend:     tpSend,
-		tpWritev:   tpWritev,
-		tpReadEnt:  tpReadEnt,
-		tpReadExit: tpReadExit,
-		tpRecvEnt:  tpRecvEnt,
-		tpRecvExit: tpRecvExit,
-		reader:     reader,
+		objs:   objs,
+		links:  links,
+		reader: reader,
 	}, nil
 }
 
@@ -140,7 +102,7 @@ func (c *Collector) Run(ctx context.Context, handler func(models.Event)) error {
 			continue
 		}
 
-		event, err := parser.ParseEvent(record.RawSample)
+		event, err := parseEvent(record.RawSample)
 		if err != nil {
 			log.Printf("parse event error: %v", err)
 			continue
@@ -151,29 +113,7 @@ func (c *Collector) Run(ctx context.Context, handler func(models.Event)) error {
 }
 
 func (c *Collector) Close() {
-	if c.reader != nil {
-		c.reader.Close()
-	}
-	if c.tpRecvExit != nil {
-		c.tpRecvExit.Close()
-	}
-	if c.tpRecvEnt != nil {
-		c.tpRecvEnt.Close()
-	}
-	if c.tpReadExit != nil {
-		c.tpReadExit.Close()
-	}
-	if c.tpReadEnt != nil {
-		c.tpReadEnt.Close()
-	}
-	if c.tpWritev != nil {
-		c.tpWritev.Close()
-	}
-	if c.tpSend != nil {
-		c.tpSend.Close()
-	}
-	if c.tpWrite != nil {
-		c.tpWrite.Close()
-	}
+	c.reader.Close()
+	closeLinkObjects(c.links)
 	c.objs.Close()
 }

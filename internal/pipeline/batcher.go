@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/emresahna/heimdall/internal/telemetry"
+	"github.com/emresahna/heimdall/internal/models"
 	"github.com/emresahna/heimdall/internal/transport"
 )
 
@@ -15,7 +15,7 @@ const (
 )
 
 type Batcher struct {
-	in            chan telemetry.LogEntry
+	in            chan models.LogEntry
 	batchSize     int
 	flushInterval time.Duration
 	sender        transport.Sender
@@ -40,7 +40,7 @@ func NewBatcher(
 	}
 
 	return &Batcher{
-		in:            make(chan telemetry.LogEntry, maxQueue),
+		in:            make(chan models.LogEntry, maxQueue),
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
 		sender:        sender,
@@ -48,7 +48,7 @@ func NewBatcher(
 	}
 }
 
-func (b *Batcher) Enqueue(entry telemetry.LogEntry) {
+func (b *Batcher) Enqueue(entry models.LogEntry) {
 	select {
 	case b.in <- entry:
 	default:
@@ -63,7 +63,7 @@ func (b *Batcher) Run(ctx context.Context) {
 	ticker := time.NewTicker(b.flushInterval)
 	defer ticker.Stop()
 
-	batch := make([]telemetry.LogEntry, 0, b.batchSize)
+	batch := make([]models.LogEntry, 0, b.batchSize)
 
 	flush := func() {
 		if len(batch) == 0 {
@@ -91,7 +91,7 @@ func (b *Batcher) Run(ctx context.Context) {
 	}
 }
 
-func (b *Batcher) sendWithRetry(ctx context.Context, batch []telemetry.LogEntry) error {
+func (b *Batcher) sendWithRetry(ctx context.Context, batch []models.LogEntry) error {
 	var err error
 	backoff := defaultRetryBackoff
 

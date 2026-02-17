@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/emresahna/heimdall/internal/models"
 	pb "github.com/emresahna/heimdall/internal/sender"
-	"github.com/emresahna/heimdall/internal/telemetry"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Sender interface {
-	Send(ctx context.Context, batch []telemetry.LogEntry) error
+	Send(ctx context.Context, batch []models.LogEntry) error
 }
 
 type GRPCSender struct {
@@ -21,7 +21,7 @@ func NewGRPCSender(client pb.LogServiceClient) *GRPCSender {
 	return &GRPCSender{client: client}
 }
 
-func (s *GRPCSender) Send(ctx context.Context, batch []telemetry.LogEntry) error {
+func (s *GRPCSender) Send(ctx context.Context, batch []models.LogEntry) error {
 	entries := make([]*pb.LogEntry, 0, len(batch))
 	for _, entry := range batch {
 		entries = append(entries, &pb.LogEntry{

@@ -1,4 +1,4 @@
-package parser
+package pipeline
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ var httpMethods = map[string]struct{}{
 	"OPTIONS": {},
 }
 
-func ParseRequestLine(data []byte) (string, string, bool) {
+func parseRequestLine(data []byte) (string, string, bool) {
 	line := firstLine(data)
 	fields := bytes.Fields(line)
 	if len(fields) < 2 {
@@ -32,7 +32,7 @@ func ParseRequestLine(data []byte) (string, string, bool) {
 	return method, path, true
 }
 
-func ParseResponseLine(data []byte) (uint32, bool) {
+func parseResponseLine(data []byte) (uint32, bool) {
 	line := firstLine(data)
 	fields := bytes.Fields(line)
 	if len(fields) < 2 {
