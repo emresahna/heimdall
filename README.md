@@ -17,6 +17,12 @@ Heimdall is an eBPF-based observability platform with two services:
 
 ## Quick Start (Docker Compose)
 
+If you want an env file for local overrides, start from:
+
+```bash
+cp .env.example .env
+```
+
 ```bash
 docker compose -f deploy/docker-compose.yml up --build
 ```
