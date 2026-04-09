@@ -5,6 +5,7 @@ go 1.25.3
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.42.0
 	github.com/cilium/ebpf v0.20.0
+	github.com/prometheus/client_golang v1.23.2
 	golang.org/x/sys v0.39.0
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.10
@@ -42,7 +43,6 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect

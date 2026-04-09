@@ -4,6 +4,3 @@
 .DS_Store
 .env
 reports/
-vmlinux.h
-*.pb.go
-*_bpf.*

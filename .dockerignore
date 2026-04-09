@@ -8,10 +8,5 @@
 
 bin
 
-internal/bpf/vmlinux.h
-internal/bpf/*_bpf.go
-internal/bpf/*_bpf.o
-internal/sender/*.pb.go
-
 .tmpgocache
 .tmpgomodcache
