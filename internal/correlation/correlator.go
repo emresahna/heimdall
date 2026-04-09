@@ -3,6 +3,8 @@ package correlation
 import (
 	"sync"
 	"time"
+
+	"github.com/emresahna/heimdall/internal/config"
 )
 
 type RequestKey struct {
@@ -25,9 +27,9 @@ type Correlator struct {
 	requests map[RequestKey]Request
 }
 
-func NewCorrelator(ttl time.Duration) *Correlator {
+func NewCorrelator(cfg config.CorrelatorConfig) *Correlator {
 	return &Correlator{
-		ttl:      ttl,
+		ttl:      cfg.TTL,
 		requests: make(map[RequestKey]Request),
 	}
 }

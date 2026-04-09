@@ -8,33 +8,34 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/emresahna/heimdall/internal/config"
+	"github.com/emresahna/heimdall/internal/metrics"
 	"github.com/emresahna/heimdall/internal/models"
 )
-
-type Config struct {
-	Addr     string
-	Database string
-	User     string
-	Password string
-}
 
 type DB struct {
 	conn driver.Conn
 }
 
-func NewClickHouse(cfg Config) (*DB, error) {
+func NewClickHouse(cfg config.ClickHouseConfig) (*DB, error) {
+	settings := clickhouse.Settings{
+		"max_execution_time": int(cfg.MaxExecutionTime.Seconds()),
+	}
+	if cfg.AsyncInsert {
+		settings["async_insert"] = 1
+		settings["wait_for_async_insert"] = 0
+	}
+
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
 			cfg.Addr,
 		},
 		Auth: clickhouse.Auth{
-			Database: cfg.Database,
+			Database: cfg.DB,
 			Username: cfg.User,
 			Password: cfg.Password,
 		},
-		Settings: clickhouse.Settings{
-			"max_execution_time": 60,
-		},
+		Settings: settings,
 	})
 	if err != nil {
 		return nil, err
@@ -100,6 +101,11 @@ func (db *DB) InsertBatch(logs []models.LogEntry) error {
 		return nil
 	}
 
+	start := time.Now()
+	defer func() {
+		metrics.DBInsertLatency.Observe(time.Since(start).Seconds())
+	}()
+
 	ctx := context.Background()
 
 	batch, err := db.conn.PrepareBatch(ctx, `
@@ -108,6 +114,7 @@ func (db *DB) InsertBatch(logs []models.LogEntry) error {
 			payload, duration_ns, node, namespace, pod, container, container_id
 		)`)
 	if err != nil {
+		metrics.DBInsertFailures.Inc()
 		return err
 	}
 
@@ -131,11 +138,16 @@ func (db *DB) InsertBatch(logs []models.LogEntry) error {
 			log.ContainerID,
 		)
 		if err != nil {
+			metrics.DBInsertFailures.Inc()
 			return err
 		}
 	}
 
-	return batch.Send()
+	if err := batch.Send(); err != nil {
+		metrics.DBInsertFailures.Inc()
+		return err
+	}
+	return nil
 }
 
 type QueryFilter struct {

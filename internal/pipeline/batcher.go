@@ -5,46 +5,36 @@ import (
 	"log"
 	"time"
 
+	"github.com/emresahna/heimdall/internal/config"
+	"github.com/emresahna/heimdall/internal/metrics"
 	"github.com/emresahna/heimdall/internal/models"
 	"github.com/emresahna/heimdall/internal/transport"
-)
-
-const (
-	defaultRetryBackoff  = 200 * time.Millisecond
-	defaultFlushInterval = 2 * time.Second
 )
 
 type Batcher struct {
 	in            chan models.LogEntry
 	batchSize     int
 	flushInterval time.Duration
+	retryBackoff  time.Duration
 	sender        transport.Sender
 	diagnostics   *Diagnostics
+	node          string
 }
 
 func NewBatcher(
-	batchSize int,
-	flushInterval time.Duration,
-	maxQueue int,
+	cfg config.BatcherConfig,
 	sender transport.Sender,
 	diagnostics *Diagnostics,
+	node string,
 ) *Batcher {
-	if batchSize <= 0 {
-		batchSize = 200
-	}
-	if maxQueue <= 0 {
-		maxQueue = 1000
-	}
-	if flushInterval <= 0 {
-		flushInterval = defaultFlushInterval
-	}
-
 	return &Batcher{
-		in:            make(chan models.LogEntry, maxQueue),
-		batchSize:     batchSize,
-		flushInterval: flushInterval,
+		in:            make(chan models.LogEntry, cfg.MaxQueue),
+		batchSize:     cfg.BatchSize,
+		flushInterval: cfg.FlushInterval,
+		retryBackoff:  cfg.RetryBackoff,
 		sender:        sender,
 		diagnostics:   diagnostics,
+		node:          node,
 	}
 }
 
@@ -52,6 +42,7 @@ func (b *Batcher) Enqueue(entry models.LogEntry) {
 	select {
 	case b.in <- entry:
 	default:
+		metrics.QueueDropsTotal.WithLabelValues(b.node).Inc()
 		if b.diagnostics != nil {
 			b.diagnostics.IncEnqueueDrops()
 		}
@@ -93,24 +84,25 @@ func (b *Batcher) Run(ctx context.Context) {
 
 func (b *Batcher) sendWithRetry(ctx context.Context, batch []models.LogEntry) error {
 	var err error
-	backoff := defaultRetryBackoff
 
 	for attempt := 0; attempt < 3; attempt++ {
-		err = b.sender.Send(ctx, batch)
-		if err == nil {
+		if err = b.sender.Send(ctx, batch); err == nil {
+			metrics.BatchesSentTotal.WithLabelValues(b.node).Inc()
 			if b.diagnostics != nil {
 				b.diagnostics.IncBatchesSent()
 			}
 			return nil
 		}
+
+		metrics.SendFailuresTotal.WithLabelValues(b.node).Inc()
 		if b.diagnostics != nil {
 			b.diagnostics.IncSendFailures()
 		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(backoff):
-			backoff *= 2
+		case <-time.After(b.retryBackoff):
 		}
 	}
 

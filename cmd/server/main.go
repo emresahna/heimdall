@@ -14,17 +14,13 @@ import (
 	"github.com/emresahna/heimdall/internal/server"
 	"github.com/emresahna/heimdall/internal/storage"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
 	cfg := config.Load()
 
-	db, err := storage.NewClickHouse(storage.Config{
-		Addr:     cfg.ClickHouseConfig.Addr,
-		Database: cfg.ClickHouseConfig.DB,
-		User:     cfg.ClickHouseConfig.User,
-		Password: cfg.ClickHouseConfig.Password,
-	})
+	db, err := storage.NewClickHouse(cfg.ClickHouseConfig)
 	if err != nil {
 		log.Fatalf("DB connection error: %v", err)
 	}
@@ -41,7 +37,16 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	var opts []grpc.ServerOption
+	if cfg.UseTLS {
+		creds, err := credentials.NewServerTLSFromFile(cfg.TLSCertFile, cfg.TLSKeyFile)
+		if err != nil {
+			log.Fatalf("failed to load TLS credentials: %v", err)
+		}
+		opts = append(opts, grpc.Creds(creds))
+	}
+
+	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterLogServiceServer(grpcServer, server.NewGrpcServer(db))
 
 	httpServer := &http.Server{
@@ -68,7 +73,7 @@ func main() {
 
 	shutdownCtx, cancelShutdown := context.WithTimeout(
 		context.Background(),
-		cfg.HTTPShutdownTimeout,
+		cfg.ShutdownTimeout,
 	)
 	defer cancelShutdown()
 	_ = httpServer.Shutdown(shutdownCtx)

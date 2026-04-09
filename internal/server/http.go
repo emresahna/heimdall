@@ -9,6 +9,7 @@ import (
 
 	"github.com/emresahna/heimdall/internal/storage"
 	"github.com/emresahna/heimdall/web"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type HttpServer struct {
@@ -23,6 +24,7 @@ func (s *HttpServer) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealth)
 	mux.HandleFunc("/api/logs", s.handleLogs)
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/", http.FileServer(http.FS(web.FS)))
 	return mux
 }

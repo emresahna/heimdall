@@ -30,9 +30,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: AGENT_K8S_ENRICH
+        - name: K8S_ENRICH
           value: "true"
-        - name: AGENT_DIAGNOSTICS_INTERVAL
+        - name: DIAGNOSTICS_INTERVAL
           value: "15s"
         volumeMounts:
         - name: debugfs

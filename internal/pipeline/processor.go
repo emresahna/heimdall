@@ -6,10 +6,9 @@ import (
 
 	"github.com/emresahna/heimdall/internal/correlation"
 	"github.com/emresahna/heimdall/internal/enrichment"
+	"github.com/emresahna/heimdall/internal/metrics"
 	"github.com/emresahna/heimdall/internal/models"
 )
-
-const maintenanceInterval = 10 * time.Second
 
 type Processor struct {
 	ctx         context.Context
@@ -42,6 +41,7 @@ func NewProcessor(
 }
 
 func (p *Processor) HandleEvent(ev models.Event) {
+	metrics.EventsReadTotal.WithLabelValues(p.node).Inc()
 	if p.diagnostics != nil {
 		p.diagnostics.IncEventsRead()
 	}
@@ -112,10 +112,6 @@ func (p *Processor) HandleEvent(ev models.Event) {
 }
 
 func (p *Processor) RunMaintenance(ctx context.Context, interval time.Duration) {
-	if interval <= 0 {
-		interval = maintenanceInterval
-	}
-
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 

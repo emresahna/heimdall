@@ -96,21 +96,30 @@ make docker-server
 - `CLICKHOUSE_DB` (default: `default`)
 - `CLICKHOUSE_USER` (default: `default`)
 - `CLICKHOUSE_PASSWORD` (default: empty)
+- `CLICKHOUSE_MAX_EXECUTION_TIME` (default: `60s`)
+- `CLICKHOUSE_ASYNC_INSERT` (default: `true`)
+- `USE_TLS` (default: `false`)
+- `TLS_CERT_FILE` / `TLS_KEY_FILE` for gRPC TLS
 - `PORT` (gRPC, default: `50051`)
 - `HTTP_PORT` (UI/API, default: `8080`)
-- `HTTP_SHUTDOWN_TIMEOUT` (default: `5s`)
+- `METRICS_PORT` (agent metrics, default: `9090`)
+- `SHUTDOWN_TIMEOUT` (default: `5s`)
 
 ### Agent
 
-- `SERVER_ADDR` (required)
+- `SERVER_ADDR` (default: `localhost:50051`)
 - `NODE_NAME` (default: hostname)
-- `AGENT_BATCH_SIZE` (default: `200`)
-- `AGENT_FLUSH_INTERVAL` (default: `2s`)
-- `AGENT_MAX_QUEUE` (default: `5000`)
-- `AGENT_K8S_ENRICH` (default: `false`)
-- `AGENT_HTTP_SAMPLE_BYTES` (default: `128`)
-- `AGENT_CORRELATOR_TTL` (default: `30s`)
-- `AGENT_DIAGNOSTICS_INTERVAL` (default: `15s`, set `0` to disable)
+- `BATCHER_BATCH_SIZE` (default: `200`)
+- `BATCHER_FLUSH_INTERVAL` (default: `2s`)
+- `BATCHER_MAX_QUEUE` (default: `1000`)
+- `BATCHER_RETRY_BACKOFF` (default: `200ms`)
+- `K8S_ENRICH` (default: `false`)
+- `HTTP_SAMPLE_BYTES` (default: `1024`)
+- `CORRELATOR_TTL` (default: `30s`)
+- `DIAGNOSTICS_INTERVAL` (default: `15s`, set `0` to disable)
+- `CB_THRESHOLD` (default: `5`)
+- `CB_RESET_TIMEOUT` (default: `30s`)
+- `USE_TLS` / `TLS_CA_FILE` for mTLS-style client configuration when enabled
 
 ## Kubernetes Manifests
 

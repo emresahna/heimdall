@@ -7,6 +7,29 @@ import (
 	"time"
 )
 
+const (
+	defaultDiagnosticText = `
+		Agent Diagnostics:
+			Total Events Read: %d
+			Total Parsed Requests: %d
+			Total Parsed Responses: %d
+			Total Matched Responses: %d
+			Total Unmatched Responses: %d
+			Total Enqueue Drops: %d
+			Total Batches Sent: %d
+			Total Send Failures: %d
+		Delta since last report:
+			Events Read: %d
+			Parsed Requests: %d
+			Parsed Responses: %d
+			Matched Responses: %d
+			Unmatched Responses: %d
+			Enqueue Drops: %d
+			Batches Sent: %d
+			Send Failures: %d
+	`
+)
+
 type Snapshot struct {
 	EventsRead         uint64
 	ParsedRequests     uint64
@@ -99,7 +122,7 @@ func StartDiagnosticsReporter(
 		case <-ticker.C:
 			current := diagnostics.Snapshot()
 			log.Printf(
-				"agent diagnostics total(events=%d req=%d resp=%d matched=%d unmatched=%d drops=%d batches=%d send_failures=%d) delta(events=%d req=%d resp=%d matched=%d unmatched=%d drops=%d batches=%d send_failures=%d)",
+				defaultDiagnosticText,
 				current.EventsRead,
 				current.ParsedRequests,
 				current.ParsedResponses,
