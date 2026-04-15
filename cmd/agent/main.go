@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/emresahna/heimdall/internal/collector"
 	"github.com/emresahna/heimdall/internal/config"
@@ -47,7 +48,7 @@ func main() {
 	}
 	defer coll.Close()
 
-	cb := transport.NewCircuitBreaker(cfg.CBThreshold, cfg.CBResetTimeout)
+	cb := transport.NewCircuitBreakerWithComponent(cfg.CircuitBreakerConfig.CBThreshold, cfg.CircuitBreakerConfig.CBResetTimeout, "sender")
 	client := pb.NewLogServiceClient(conn)
 	sender := transport.NewGRPCSender(client, cb)
 	diagnostics := pipeline.NewDiagnostics()
@@ -79,6 +80,13 @@ func main() {
 			log.Printf("metrics server error: %v", err)
 		}
 	}()
+
+	// Start BPF map metrics reporter if we have access to the collector maps
+	reporter := collector.NewBPFMapMetricsReporter(
+		collector.MapInfo{Name: "events", Map: coll.GetMap("events")},
+		collector.MapInfo{Name: "pending_reads", Map: coll.GetMap("pending_reads")},
+	)
+	go reporter.Start(ctx, 10*time.Second)
 
 	go batcher.Run(ctx)
 	go processor.RunMaintenance(ctx, cfg.CorrelatorConfig.TTL)

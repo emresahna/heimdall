@@ -48,4 +48,35 @@ var (
 		Name: "clickhouse_insert_failures_total",
 		Help: "The total number of ClickHouse insert failures after retry exhaustion",
 	})
+
+	CircuitBreakerState = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "heimdall_circuit_breaker_state",
+		Help: "Current state of circuit breaker (0=closed, 1=open, 2=half-open)",
+	}, []string{"component"})
+
+	CircuitBreakerFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "heimdall_circuit_breaker_failures_total",
+		Help: "Total number of failures that triggered circuit breaker",
+	}, []string{"component"})
+
+	CircuitBreakerRejects = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "heimdall_circuit_breaker_rejects_total",
+		Help: "Total number of requests rejected due to open circuit",
+	}, []string{"component"})
+
+	// BPF Map Pressure Metrics
+	BPFMapEntries = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "heimdall_bpf_map_entries",
+		Help: "Current number of entries in BPF map",
+	}, []string{"map_name"})
+
+	BPFMapCapacity = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "heimdall_bpf_map_capacity",
+		Help: "Maximum capacity of BPF map",
+	}, []string{"map_name"})
+
+	BPFMapPressure = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "heimdall_bpf_map_pressure",
+		Help: "Pressure percentage of BPF map (entries/capacity * 100)",
+	}, []string{"map_name"})
 )

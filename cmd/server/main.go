@@ -48,6 +48,7 @@ func main() {
 
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterLogServiceServer(grpcServer, server.NewGrpcServer(db))
+	server.RegisterStandardHealth(grpcServer)
 
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.HTTPPort,

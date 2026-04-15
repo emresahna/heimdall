@@ -37,10 +37,15 @@ type ClickHouseConfig struct {
 	DB               string        `env:"CLICKHOUSE_DB"                 aliases:"CLICK_HOUSE_DB"                 default:"default"`
 	MaxExecutionTime time.Duration `env:"CLICKHOUSE_MAX_EXECUTION_TIME" aliases:"CLICK_HOUSE_MAX_EXECUTION_TIME" default:"60s"`
 	AsyncInsert      bool          `env:"CLICKHOUSE_ASYNC_INSERT"       aliases:"CLICK_HOUSE_ASYNC_INSERT"       default:"true"`
+	CBThreshold      int           `env:"CLICKHOUSE_CB_THRESHOLD"       default:"5"`
+	CBResetTimeout   time.Duration `env:"CLICKHOUSE_CB_RESET_TIMEOUT"   default:"30s"`
 }
 
 type CorrelatorConfig struct {
 	TTL time.Duration `env:"CORRELATOR_TTL" aliases:"AGENT_CORRELATOR_TTL" default:"30s"`
+	// TTLSeconds is an alternative to TTL - provides integer seconds for easier configuration.
+	// If set, takes precedence over TTL. Must be between 5 and 300.
+	TTLSeconds int `env:"CORRELATION_TTL_SECONDS" aliases:"AGENT_CORRELATION_TTL_SECONDS" default:"0"`
 }
 
 type BatcherConfig struct {
@@ -103,6 +108,15 @@ func Load(p ...string) *Config {
 	}
 	if c.NodeName == "" {
 		c.NodeName = hostnameOrFallback()
+	}
+
+	// Validate CORRELATION_TTL_SECONDS range (5-300 seconds)
+	if c.CorrelatorConfig.TTLSeconds > 0 {
+		if c.CorrelatorConfig.TTLSeconds < 5 || c.CorrelatorConfig.TTLSeconds > 300 {
+			panic(fmt.Errorf("CORRELATION_TTL_SECONDS must be between 5 and 300, got %d", c.CorrelatorConfig.TTLSeconds))
+		}
+		// Convert seconds to duration, overriding TTL if set
+		c.CorrelatorConfig.TTL = time.Duration(c.CorrelatorConfig.TTLSeconds) * time.Second
 	}
 
 	return &c

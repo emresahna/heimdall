@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/emresahna/heimdall/internal/metrics"
 )
 
 var (
@@ -26,6 +28,7 @@ type CircuitBreaker struct {
 	threshold    int
 	resetTimeout time.Duration
 	lastFailure  time.Time
+	component    string // for metrics
 }
 
 func NewCircuitBreaker(threshold int, resetTimeout time.Duration) *CircuitBreaker {
@@ -33,7 +36,20 @@ func NewCircuitBreaker(threshold int, resetTimeout time.Duration) *CircuitBreake
 		state:        Closed,
 		threshold:    threshold,
 		resetTimeout: resetTimeout,
+		component:    "sender",
 	}
+}
+
+func NewCircuitBreakerWithComponent(threshold int, resetTimeout time.Duration, component string) *CircuitBreaker {
+	cb := &CircuitBreaker{
+		state:        Closed,
+		threshold:    threshold,
+		resetTimeout: resetTimeout,
+		component:    component,
+	}
+	// Initialize metrics
+	metrics.CircuitBreakerState.WithLabelValues(component).Set(0)
+	return cb
 }
 
 func (cb *CircuitBreaker) Execute(ctx context.Context, f func() error) error {
@@ -41,8 +57,10 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, f func() error) error {
 	if cb.state == Open {
 		if time.Since(cb.lastFailure) > cb.resetTimeout {
 			cb.state = HalfOpen
+			metrics.CircuitBreakerState.WithLabelValues(cb.component).Set(2)
 		} else {
 			cb.mu.Unlock()
+			metrics.CircuitBreakerRejects.WithLabelValues(cb.component).Inc()
 			return ErrCircuitOpen
 		}
 	}
@@ -58,6 +76,8 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, f func() error) error {
 		if cb.failureCount >= cb.threshold {
 			cb.state = Open
 			cb.lastFailure = time.Now()
+			metrics.CircuitBreakerState.WithLabelValues(cb.component).Set(1)
+			metrics.CircuitBreakerFailures.WithLabelValues(cb.component).Inc()
 		}
 		return err
 	}
@@ -65,6 +85,7 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, f func() error) error {
 	if cb.state == HalfOpen {
 		cb.state = Closed
 		cb.failureCount = 0
+		metrics.CircuitBreakerState.WithLabelValues(cb.component).Set(0)
 	}
 
 	return nil

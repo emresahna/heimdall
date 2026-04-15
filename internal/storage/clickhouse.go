@@ -12,6 +12,7 @@ import (
 	"github.com/emresahna/heimdall/internal/config"
 	"github.com/emresahna/heimdall/internal/metrics"
 	"github.com/emresahna/heimdall/internal/models"
+	"github.com/emresahna/heimdall/internal/transport"
 )
 
 const (
@@ -25,6 +26,7 @@ var retryDelays = []time.Duration{retryDelay1, retryDelay2, retryDelay3}
 
 type DB struct {
 	conn driver.Conn
+	cb   *transport.CircuitBreaker
 }
 
 func NewClickHouse(cfg config.ClickHouseConfig) (*DB, error) {
@@ -55,7 +57,18 @@ func NewClickHouse(cfg config.ClickHouseConfig) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{conn: conn}, nil
+	db := &DB{conn: conn}
+
+	// Initialize circuit breaker for ClickHouse operations
+	if cfg.CBThreshold > 0 {
+		db.cb = transport.NewCircuitBreakerWithComponent(
+			cfg.CBThreshold,
+			cfg.CBResetTimeout,
+			"clickhouse",
+		)
+	}
+
+	return db, nil
 }
 
 func (db *DB) Migrate() error {
@@ -111,6 +124,18 @@ func (db *DB) InsertBatch(logs []models.LogEntry) error {
 		return nil
 	}
 
+	// Use circuit breaker if configured
+	if db.cb != nil {
+		return db.cb.Execute(context.Background(), func() error {
+			return db.insertWithRetry(logs)
+		})
+	}
+
+	// Fallback to direct insert with retry
+	return db.insertWithRetry(logs)
+}
+
+func (db *DB) insertWithRetry(logs []models.LogEntry) error {
 	start := time.Now()
 	defer func() {
 		metrics.DBInsertLatency.Observe(time.Since(start).Seconds())

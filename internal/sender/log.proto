@@ -10,6 +10,26 @@ service LogService {
   rpc SendLogs (LogBatch) returns (Response);
 }
 
+// Health service for Kubernetes liveness/readiness probes
+service Health {
+  rpc Check (HealthCheckRequest) returns (HealthCheckResponse);
+  rpc Watch (HealthCheckRequest) returns (stream HealthCheckResponse);
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+  ServingStatus status = 1;
+}
+
 message LogEntry {
   google.protobuf.Timestamp timestamp = 1;
   uint32 pid = 2;

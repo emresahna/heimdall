@@ -117,3 +117,14 @@ func (c *Collector) Close() {
 	closeLinkObjects(c.links)
 	c.objs.Close()
 }
+
+// GetMap returns the BPF map by name, used for metrics collection
+func (c *Collector) GetMap(name string) *ebpf.Map {
+	switch name {
+	case "events":
+		return c.objs.Events
+	case "pending_reads":
+		return c.objs.PendingReads
+	}
+	return nil
+}
