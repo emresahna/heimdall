@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -12,6 +13,15 @@ import (
 	"github.com/emresahna/heimdall/internal/metrics"
 	"github.com/emresahna/heimdall/internal/models"
 )
+
+const (
+	maxRetries  = 3
+	retryDelay1 = 100 * time.Millisecond
+	retryDelay2 = 1 * time.Second
+	retryDelay3 = 5 * time.Second
+)
+
+var retryDelays = []time.Duration{retryDelay1, retryDelay2, retryDelay3}
 
 type DB struct {
 	conn driver.Conn
@@ -106,48 +116,33 @@ func (db *DB) InsertBatch(logs []models.LogEntry) error {
 		metrics.DBInsertLatency.Observe(time.Since(start).Seconds())
 	}()
 
-	ctx := context.Background()
+	var lastErr error
 
-	batch, err := db.conn.PrepareBatch(ctx, `
-		INSERT INTO http_logs (
-			timestamp, pid, tid, fd, cgroup_id, type, status, method, path,
-			payload, duration_ns, node, namespace, pod, container, container_id
-		)`)
-	if err != nil {
-		metrics.DBInsertFailures.Inc()
-		return err
+	// First attempt (no backoff)
+	lastErr = db.insertBatchWithRetry(logs)
+	if lastErr == nil {
+		return nil
 	}
 
-	for _, log := range logs {
-		err := batch.Append(
-			log.Timestamp,
-			log.Pid,
-			log.Tid,
-			log.Fd,
-			log.CgroupID,
-			log.Type,
-			log.Status,
-			log.Method,
-			log.Path,
-			log.Payload,
-			log.DurationNs,
-			log.Node,
-			log.Namespace,
-			log.Pod,
-			log.Container,
-			log.ContainerID,
-		)
-		if err != nil {
-			metrics.DBInsertFailures.Inc()
-			return err
+	log.Printf("ClickHouse insert attempt 1/%d failed: %v", maxRetries, lastErr)
+
+	// Retry with exponential backoff for remaining attempts
+	for attempt := 1; attempt < maxRetries; attempt++ {
+		log.Printf("ClickHouse insert retry %d/%d after error: %v", attempt, maxRetries-1, lastErr)
+		time.Sleep(retryDelays[attempt-1])
+
+		lastErr = db.insertBatchWithRetry(logs)
+		if lastErr == nil {
+			return nil
 		}
+
+		log.Printf("ClickHouse insert attempt %d/%d failed: %v", attempt+1, maxRetries, lastErr)
 	}
 
-	if err := batch.Send(); err != nil {
-		metrics.DBInsertFailures.Inc()
-		return err
-	}
-	return nil
+	// All retries exhausted
+	log.Printf("ClickHouse insert failed after %d attempts, dropping %d logs", maxRetries, len(logs))
+	metrics.ClickHouseInsertFailures.Inc()
+	return lastErr
 }
 
 type QueryFilter struct {
@@ -231,4 +226,49 @@ func (db *DB) QueryLogs(ctx context.Context, f QueryFilter) ([]models.LogEntry, 
 	}
 
 	return entries, rows.Err()
+}
+
+func (db *DB) insertBatchWithRetry(logs []models.LogEntry) error {
+	ctx := context.Background()
+
+	batch, err := db.conn.PrepareBatch(ctx, `
+		INSERT INTO http_logs (
+			timestamp, pid, tid, fd, cgroup_id, type, status, method, path,
+			payload, duration_ns, node, namespace, pod, container, container_id
+		)`)
+	if err != nil {
+		metrics.DBInsertFailures.Inc()
+		return err
+	}
+
+	for _, entry := range logs {
+		err := batch.Append(
+			entry.Timestamp,
+			entry.Pid,
+			entry.Tid,
+			entry.Fd,
+			entry.CgroupID,
+			entry.Type,
+			entry.Status,
+			entry.Method,
+			entry.Path,
+			entry.Payload,
+			entry.DurationNs,
+			entry.Node,
+			entry.Namespace,
+			entry.Pod,
+			entry.Container,
+			entry.ContainerID,
+		)
+		if err != nil {
+			metrics.DBInsertFailures.Inc()
+			return err
+		}
+	}
+
+	if err := batch.Send(); err != nil {
+		metrics.DBInsertFailures.Inc()
+		return err
+	}
+	return nil
 }

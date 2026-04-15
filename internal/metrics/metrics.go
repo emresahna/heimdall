@@ -43,4 +43,9 @@ var (
 		Name: "heimdall_server_db_insert_failures_total",
 		Help: "The total number of database insertion failures",
 	})
+
+	ClickHouseInsertFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "clickhouse_insert_failures_total",
+		Help: "The total number of ClickHouse insert failures after retry exhaustion",
+	})
 )
