@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "heimdall.fullname" . }}-server
+  labels:
+    {{- include "heimdall.labels" . | nindent 4 }}
+    component: server
+spec:
+  type: {{ .Values.server.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.server.service.grpcPort | default 50051 }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+    - port: {{ .Values.server.service.httpPort | default 8080 }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "heimdall.selectorLabels" . | nindent 4 }}
+    component: server
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "heimdall.serviceAccountName" . }}-agent
+  labels:
+    {{- include "heimdall.labels" . | nindent 4 }}
+    component: agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "heimdall.fullname" . }}-agent
+  labels:
+    {{- include "heimdall.labels" . | nindent 4 }}
+    component: agent
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "heimdall.fullname" . }}-agent
+  labels:
+    {{- include "heimdall.labels" . | nindent 4 }}
+    component: agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "heimdall.fullname" . }}-agent
+subjects:
+- kind: ServiceAccount
+  name: {{ include "heimdall.serviceAccountName" . }}-agent
+  namespace: {{ .Release.Namespace }}
+---
+{{- if .Values.clickhouse.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "heimdall.fullname" . }}-clickhouse
+  labels:
+    {{- include "heimdall.labels" . | nindent 4 }}
+    component: clickhouse
+spec:
+  ports:
+  - name: http
+    port: 8123
+    targetPort: 8123
+  - name: native
+    port: 9000
+    targetPort: 9000
+  selector:
+    {{- include "heimdall.selectorLabels" . | nindent 4 }}
+    component: clickhouse
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "heimdall.fullname" . }}-clickhouse
+  labels:
+    {{- include "heimdall.labels" . | nindent 4 }}
+    component: clickhouse
+spec:
+  serviceName: {{ include "heimdall.fullname" . }}-clickhouse
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "heimdall.selectorLabels" . | nindent 6 }}
+      component: clickhouse
+  template:
+    metadata:
+      labels:
+        {{- include "heimdall.selectorLabels" . | nindent 8 }}
+        component: clickhouse
+    spec:
+      containers:
+      - name: clickhouse
+        image: "{{ .Values.clickhouse.image.repository }}:{{ .Values.clickhouse.image.tag | default "latest" }}"
+        ports:
+        - containerPort: 8123
+          name: http
+        - containerPort: 9000
+          name: native
+        env:
+        - name: CLICKHOUSE_DB
+          value: {{ .Values.server.config.clickhouseDb | quote }}
+        - name: CLICKHOUSE_USER
+          value: {{ .Values.server.config.clickhouseUser | quote }}
+        - name: CLICKHOUSE_PASSWORD
+          value: {{ .Values.server.config.clickhousePassword | quote }}
+        - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+          value: "1"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/clickhouse
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: {{ .Values.clickhouse.persistence.accessModes | default (list "ReadWriteOnce") }}
+      resources:
+        requests:
+          storage: {{ .Values.clickhouse.persistence.size | default "20Gi" }}
+{{- end }}

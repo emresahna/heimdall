@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "heimdall.fullname" . }}-server
+  labels:
+    {{- include "heimdall.labels" . | nindent 4 }}
+    component: server
+spec:
+  replicas: {{ .Values.server.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "heimdall.selectorLabels" . | nindent 6 }}
+      component: server
+  template:
+    metadata:
+      labels:
+        {{- include "heimdall.selectorLabels" . | nindent 8 }}
+        component: server
+    spec:
+      containers:
+      - name: server
+        image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.server.image.pullPolicy | default "IfNotPresent" }}
+        env:
+        - name: CLICKHOUSE_ADDR
+          {{- if .Values.clickhouse.enabled }}
+          value: "{{ include "heimdall.fullname" . }}-clickhouse:9000"
+          {{- else }}
+          value: {{ .Values.server.config.clickhouseAddr | quote }}
+          {{- end }}
+        - name: CLICKHOUSE_DB
+          value: {{ .Values.server.config.clickhouseDb | quote }}
+        - name: CLICKHOUSE_USER
+          value: {{ .Values.server.config.clickhouseUser | quote }}
+        - name: CLICKHOUSE_PASSWORD
+          value: {{ .Values.server.config.clickhousePassword | quote }}
+        - name: PORT
+          value: {{ .Values.server.service.grpcPort | default 50051 | quote }}
+        - name: HTTP_PORT
+          value: {{ .Values.server.service.httpPort | default 8080 | quote }}
+        {{- range $key, $val := .Values.server.env }}
+        - name: {{ $key }}
+          value: {{ $val | quote }}
+        {{- end }}
+        ports:
+        - name: grpc
+          containerPort: {{ .Values.server.service.grpcPort | default 50051 }}
+        - name: http
+          containerPort: {{ .Values.server.service.httpPort | default 8080 }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.server.resources | nindent 10 }}

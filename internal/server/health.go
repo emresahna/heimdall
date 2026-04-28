@@ -18,6 +18,8 @@ type HealthServer struct {
 	checker HealthChecker
 }
 
+// NewHealthServer creates a new health server. If no checker is provided,
+// it will always return SERVING status.
 func NewHealthServer(checker ...HealthChecker) *HealthServer {
 	var c HealthChecker
 	if len(checker) > 0 {
@@ -26,7 +28,10 @@ func NewHealthServer(checker ...HealthChecker) *HealthServer {
 	return &HealthServer{checker: c}
 }
 
-func (s *HealthServer) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+func (s *HealthServer) Check(
+	ctx context.Context,
+	req *grpc_health_v1.HealthCheckRequest,
+) (*grpc_health_v1.HealthCheckResponse, error) {
 	if s.checker != nil && !s.checker.IsHealthy() {
 		return &grpc_health_v1.HealthCheckResponse{
 			Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING,
@@ -37,50 +42,33 @@ func (s *HealthServer) Check(ctx context.Context, req *grpc_health_v1.HealthChec
 	}, nil
 }
 
-func (s *HealthServer) Watch(req *grpc_health_v1.HealthCheckRequest, stream grpc_health_v1.Health_WatchServer) error {
+func (s *HealthServer) Watch(
+	req *grpc_health_v1.HealthCheckRequest,
+	stream grpc_health_v1.Health_WatchServer,
+) error {
 	// Send initial serving status
+	status := grpc_health_v1.HealthCheckResponse_SERVING
+	if s.checker != nil && !s.checker.IsHealthy() {
+		status = grpc_health_v1.HealthCheckResponse_NOT_SERVING
+	}
+
 	if err := stream.Send(&grpc_health_v1.HealthCheckResponse{
-		Status: grpc_health_v1.HealthCheckResponse_SERVING,
+		Status: status,
 	}); err != nil {
 		return err
 	}
 
-	// Keep stream open - no status changes in this implementation
+	// Keep stream open
 	<-stream.Context().Done()
 	return nil
 }
 
-// RegisterHealthService registers the health service on a gRPC server
+// RegisterStandardHealth registers the standard gRPC health service using a default server
+func RegisterStandardHealth(s *grpc.Server) {
+	grpc_health_v1.RegisterHealthServer(s, NewHealthServer())
+}
+
+// RegisterHealthService registers the health service on a gRPC server with a specific server instance
 func RegisterHealthService(s *grpc.Server, healthServer *HealthServer) {
 	grpc_health_v1.RegisterHealthServer(s, healthServer)
-}
-
-// GrpcHealthServer wraps the standard health service for use without custom checker
-type GrpcHealthServer struct {
-	*grpc_health_v1.UnimplementedHealthServer
-}
-
-func NewGrpcHealthServer() *GrpcHealthServer {
-	return &GrpcHealthServer{}
-}
-
-func (s *GrpcHealthServer) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
-	return &grpc_health_v1.HealthCheckResponse{
-		Status: grpc_health_v1.HealthCheckResponse_SERVING,
-	}, nil
-}
-
-func (s *GrpcHealthServer) Watch(req *grpc_health_v1.HealthCheckRequest, stream grpc_health_v1.Health_WatchServer) error {
-	if err := stream.Send(&grpc_health_v1.HealthCheckResponse{
-		Status: grpc_health_v1.HealthCheckResponse_SERVING,
-	}); err != nil {
-		return err
-	}
-	<-stream.Context().Done()
-	return nil
-}
-
-// RegisterStandardHealth registers the standard gRPC health service
-func RegisterStandardHealth(s *grpc.Server) {
-	grpc_health_v1.RegisterHealthServer(s, &GrpcHealthServer{})
 }

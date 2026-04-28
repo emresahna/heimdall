@@ -135,6 +135,15 @@ func (db *DB) InsertBatch(logs []models.LogEntry) error {
 	return db.insertWithRetry(logs)
 }
 
+func (db *DB) IsHealthy() bool {
+	if db.conn == nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return db.conn.Ping(ctx) == nil
+}
+
 func (db *DB) insertWithRetry(logs []models.LogEntry) error {
 	start := time.Now()
 	defer func() {

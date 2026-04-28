@@ -1,0 +1,64 @@
+# Default values for heimdall.
+
+# Agent configuration (eBPF)
+agent:
+  enabled: true
+  image:
+    repository: heimdall-agent
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  env:
+    DIAGNOSTICS_INTERVAL: "15s"
+
+# Server configuration (API/UI/Ingest)
+server:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: heimdall-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    grpcPort: 50051
+    httpPort: 8080
+  config:
+    clickhouseAddr: "heimdall-clickhouse:9000"
+    clickhouseDb: "heimdall_logs"
+    clickhouseUser: "heimdall_user"
+    clickhousePassword: "heimdall_password"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  env: {}
+
+# ClickHouse configuration (Optional)
+clickhouse:
+  enabled: true
+  image:
+    repository: clickhouse/clickhouse-server
+    tag: latest
+  persistence:
+    size: 20Gi
+    accessModes:
+      - ReadWriteOnce
+
+# Global overrides
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
