@@ -85,7 +85,7 @@ func (b *Batcher) Run(ctx context.Context) {
 func (b *Batcher) sendWithRetry(ctx context.Context, batch []models.LogEntry) error {
 	var err error
 
-	for attempt := 0; attempt < 3; attempt++ {
+	for range 3 {
 		if err = b.sender.Send(ctx, batch); err == nil {
 			metrics.BatchesSentTotal.WithLabelValues(b.node).Inc()
 			if b.diagnostics != nil {

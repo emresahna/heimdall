@@ -75,8 +75,12 @@ func main() {
 
 	go func() {
 		log.Printf("Starting metrics server on port %s", cfg.MetricsPort)
-		http.Handle("/metrics", promhttp.Handler())
-		if err := http.ListenAndServe(":"+cfg.MetricsPort, nil); err != nil {
+		metricsServer := &http.Server{
+			Addr:              ":" + cfg.MetricsPort,
+			Handler:           promhttp.Handler(),
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("metrics server error: %v", err)
 		}
 	}()
@@ -84,12 +88,12 @@ func main() {
 	// Start BPF map metrics reporter if we have access to the collector maps
 	reporter := collector.NewBPFMapMetricsReporter(
 		collector.MapInfo{Name: "events", Map: coll.GetMap("events")},
-		collector.MapInfo{Name: "pending_reads", Map: coll.GetMap("pending_reads")},
+		collector.MapInfo{Name: "pending_reads", Map: coll.GetMap("pending_reads"), Count: collector.CountHashMapKeys},
 	)
 	go reporter.Start(ctx, 10*time.Second)
 
 	go batcher.Run(ctx)
-	go processor.RunMaintenance(ctx, cfg.CorrelatorConfig.TTL)
+	go processor.RunMaintenance(ctx, cfg.TTL)
 	go pipeline.StartDiagnosticsReporter(ctx, diagnostics, cfg.DiagnosticsInterval)
 	go func() {
 		if err := coll.Run(ctx, processor.HandleEvent); err != nil {

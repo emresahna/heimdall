@@ -9,9 +9,7 @@ import (
 	"github.com/emresahna/heimdall/internal/metrics"
 )
 
-var (
-	ErrCircuitOpen = errors.New("circuit breaker is open")
-)
+var ErrCircuitOpen = errors.New("circuit breaker is open")
 
 type State int
 

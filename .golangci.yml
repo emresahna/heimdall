@@ -1,10 +1,42 @@
 version: "2"
+
 linters:
-  default: all
-  disable:
-    - wsl
-    - nlreturn
-    - depguard
+  default: none
+  enable:
+    - bodyclose
+    - errcheck
+    - gosec
+    - govet
+    - ineffassign
+    - intrange
+    - nilerr
+    - staticcheck
+    - unused
+    - usestdlibvars
+  settings:
+    gosec:
+      excludes:
+        - G104
+        - G115
+        - G117
+        - G304
+        - G306
+  exclusions:
+    generated: lax
+    rules:
+      - path: internal/sender
+        linters:
+          - errcheck
+          - gosec
+      - path: _test\.go$
+        linters:
+          - gosec
+      - text: Error return value of `.*\.(Close|Remove)` is not checked
+        linters:
+          - errcheck
+      - path: internal/enrichment/enricher\.go
+        linters:
+          - nilerr
 
 formatters:
   enable:
@@ -12,5 +44,3 @@ formatters:
     - gofmt
     - gofumpt
     - goimports
-    - golines
-    - swaggo

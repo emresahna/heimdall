@@ -1,6 +1,19 @@
+# Build output
+bin/
+
+# Local config / secrets
+.env
+certs/
+
+# Local tooling & caches
 .gocache
 .vscode
 .idea
-.DS_Store
-.env
 reports/
+
+# Test & coverage artifacts
+coverage.out
+*.cover.out
+
+# OS
+.DS_Store

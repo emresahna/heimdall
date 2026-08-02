@@ -18,7 +18,7 @@ help:
 build: build-agent build-server
 
 build-agent:
-	CGO_ENABLED=1 go build -o bin/agent ./cmd/agent
+	CGO_ENABLED=0 go build -o bin/agent ./cmd/agent
 
 build-server:
 	CGO_ENABLED=0 go build -o bin/server ./cmd/server

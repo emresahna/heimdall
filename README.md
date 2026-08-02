@@ -146,3 +146,18 @@ All namespaced resources are set to `default` in `deploy/k8s`.
 2. Check agent diagnostics logs (`events`, `matched`, `unmatched`, `drops`, `send_failures`).
 3. Check server logs for ingest/DB errors.
 4. Ensure privileged agent runtime and required mounts (`/sys/kernel/debug`, `/sys/fs/bpf`).
+
+## Limitations
+
+- **Plaintext HTTP/1.x only.** Capture hooks syscall tracepoints; TLS traffic (OpenSSL, Go TLS, sidecars) and HTTP/2 are not detected.
+- **Whole-host capture.** All processes on the node are traced; there is no cgroup/pod scoping yet.
+- **At-most-once delivery.** Batches are retried (with backoff) and then dropped on prolonged outages; there is no local spool.
+- **Best-effort correlation.** Requests and responses are paired by `(pid, fd)`; fd reuse can mispair entries.
+- **No body data.** Only the request line (method/path) and response status line are stored; the `payload` column is reserved but unused.
+- **amd64 BPF object.** The committed eBPF object targets amd64 little-endian.
+- **No authentication.** gRPC and HTTP endpoints are unauthenticated and TLS is off by default.
+
+## License
+
+[MIT](LICENSE). The eBPF program (`internal/bpf/tracker.c`) keeps the kernel-side
+`Dual MIT/GPL` license declaration required by the BPF verifier for GPL helpers.

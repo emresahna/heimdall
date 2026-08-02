@@ -13,6 +13,20 @@ import (
 type MapInfo struct {
 	Name string
 	Map  *ebpf.Map
+	// Count returns the number of entries in the map. If nil, entry count is reported as 0.
+	Count func(*ebpf.Map) (int, error)
+}
+
+// CountHashMapKeys counts the entries of a hash map with u32 keys.
+func CountHashMapKeys(m *ebpf.Map) (int, error) {
+	var count int
+	var key uint32
+	var value [16]byte
+	iter := m.Iterate()
+	for iter.Next(&key, &value) {
+		count++
+	}
+	return count, iter.Err()
 }
 
 // BPFMapMetricsReporter periodically collects BPF map pressure metrics
@@ -57,15 +71,12 @@ func (r *BPFMapMetricsReporter) collect() {
 		// Use the map's max entries as capacity
 		capacity := info.MaxEntries
 
-		// Get actual count by iterating
-		iter := m.Map.Iterate()
-		var count int
-		var key, value interface{}
-		for iter.Next(&key, &value) {
-			count++
-		}
-		if iter.Err() != nil {
-			log.Printf("failed to iterate BPF map %s: %v", m.Name, iter.Err())
+		count := 0
+		if m.Count != nil {
+			count, err = m.Count(m.Map)
+			if err != nil {
+				log.Printf("failed to count BPF map %s: %v", m.Name, err)
+			}
 		}
 
 		metrics.BPFMapEntries.WithLabelValues(m.Name).Set(float64(count))

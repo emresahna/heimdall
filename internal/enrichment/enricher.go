@@ -2,6 +2,7 @@ package enrichment
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -79,7 +80,7 @@ func NewEnricher(ctx context.Context, enabled bool, nodeName string) (Enricher, 
 	)
 
 	informer := factory.Core().V1().Pods().Informer()
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			pod, ok := obj.(*v1.Pod)
 			if !ok {
@@ -108,7 +109,9 @@ func NewEnricher(ctx context.Context, enabled bool, nodeName string) (Enricher, 
 			}
 			index.DeletePod(pod)
 		},
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to register pod event handler: %w", err)
+	}
 
 	factory.Start(ctx.Done())
 	cache.WaitForCacheSync(ctx.Done(), informer.HasSynced)

@@ -27,8 +27,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DiagnosticsInterval != 15*time.Second {
 		t.Errorf("expected default DiagnosticsInterval 15s, got %v", cfg.DiagnosticsInterval)
 	}
-	if cfg.ClickHouseConfig.Addr != "127.0.0.1:9000" {
-		t.Errorf("expected default ClickHouse addr, got %q", cfg.ClickHouseConfig.Addr)
+	if cfg.Addr != "127.0.0.1:9000" {
+		t.Errorf("expected default ClickHouse addr, got %q", cfg.Addr)
 	}
 }
 
@@ -62,8 +62,8 @@ func TestLoadLegacyEnvAliases(t *testing.T) {
 
 	cfg := Load("non-existent-file")
 
-	if cfg.ClickHouseConfig.Addr != "legacy-clickhouse:9000" {
-		t.Errorf("expected legacy ClickHouse alias to load, got %q", cfg.ClickHouseConfig.Addr)
+	if cfg.Addr != "legacy-clickhouse:9000" {
+		t.Errorf("expected legacy ClickHouse alias to load, got %q", cfg.Addr)
 	}
 	if cfg.BatchSize != 321 {
 		t.Errorf("expected legacy batch size alias to load, got %d", cfg.BatchSize)
@@ -84,7 +84,7 @@ CLICKHOUSE_ADDR=clickhouse-from-file:9000
 BATCHER_FLUSH_INTERVAL=5s
 `
 	tmpFile := "test.env"
-	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(tmpFile)
@@ -98,8 +98,8 @@ BATCHER_FLUSH_INTERVAL=5s
 	if cfg.Port != "7070" {
 		t.Errorf("expected Port '7070', got '%s'", cfg.Port)
 	}
-	if cfg.ClickHouseConfig.Addr != "clickhouse-from-file:9000" {
-		t.Errorf("expected ClickHouse addr from file, got %q", cfg.ClickHouseConfig.Addr)
+	if cfg.Addr != "clickhouse-from-file:9000" {
+		t.Errorf("expected ClickHouse addr from file, got %q", cfg.Addr)
 	}
 	if cfg.FlushInterval != 5*time.Second {
 		t.Errorf("expected FlushInterval 5s, got %v", cfg.FlushInterval)

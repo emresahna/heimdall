@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/emresahna/heimdall/internal/config"
 	pb "github.com/emresahna/heimdall/internal/sender"
@@ -51,8 +52,12 @@ func main() {
 	server.RegisterHealthService(grpcServer, server.NewHealthServer(db))
 
 	httpServer := &http.Server{
-		Addr:    ":" + cfg.HTTPPort,
-		Handler: server.NewHttpServer(db).Handler(),
+		Addr:              ":" + cfg.HTTPPort,
+		Handler:           server.NewHttpServer(db, db).Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {

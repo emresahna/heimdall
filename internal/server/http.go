@@ -13,16 +13,22 @@ import (
 )
 
 type HttpServer struct {
-	db *storage.DB
+	db      *storage.DB
+	checker HealthChecker
 }
 
-func NewHttpServer(db *storage.DB) *HttpServer {
-	return &HttpServer{db: db}
+func NewHttpServer(db *storage.DB, checker ...HealthChecker) *HttpServer {
+	var c HealthChecker
+	if len(checker) > 0 {
+		c = checker[0]
+	}
+	return &HttpServer{db: db, checker: c}
 }
 
 func (s *HttpServer) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealth)
+	mux.HandleFunc("/readyz", s.handleReadyz)
 	mux.HandleFunc("/api/logs", s.handleLogs)
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/", http.FileServer(http.FS(web.FS)))
@@ -32,6 +38,16 @@ func (s *HttpServer) Handler() http.Handler {
 func (s *HttpServer) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
+}
+
+func (s *HttpServer) handleReadyz(w http.ResponseWriter, _ *http.Request) {
+	if s.checker != nil && !s.checker.IsHealthy() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("not ready"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ready"))
 }
 
 func (s *HttpServer) handleLogs(w http.ResponseWriter, r *http.Request) {

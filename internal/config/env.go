@@ -111,12 +111,12 @@ func Load(p ...string) *Config {
 	}
 
 	// Validate CORRELATION_TTL_SECONDS range (5-300 seconds)
-	if c.CorrelatorConfig.TTLSeconds > 0 {
-		if c.CorrelatorConfig.TTLSeconds < 5 || c.CorrelatorConfig.TTLSeconds > 300 {
-			panic(fmt.Errorf("CORRELATION_TTL_SECONDS must be between 5 and 300, got %d", c.CorrelatorConfig.TTLSeconds))
+	if c.TTLSeconds > 0 {
+		if c.TTLSeconds < 5 || c.TTLSeconds > 300 {
+			panic(fmt.Errorf("CORRELATION_TTL_SECONDS must be between 5 and 300, got %d", c.TTLSeconds))
 		}
 		// Convert seconds to duration, overriding TTL if set
-		c.CorrelatorConfig.TTL = time.Duration(c.CorrelatorConfig.TTLSeconds) * time.Second
+		c.TTL = time.Duration(c.TTLSeconds) * time.Second
 	}
 
 	return &c
@@ -133,7 +133,7 @@ func hostnameOrFallback() string {
 func populateStruct(v reflect.Value, envKV map[string]string) error {
 	t := v.Type()
 
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		fieldV := v.Field(i)
 		fieldT := t.Field(i)
 

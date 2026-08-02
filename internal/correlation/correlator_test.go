@@ -1,6 +1,7 @@
 package correlation
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ func TestCorrelatorMatch(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected match")
 	}
-	if got.Method != "GET" || got.Path != "/healthz" {
+	if got.Method != http.MethodGet || got.Path != "/healthz" {
 		t.Fatalf("unexpected request data")
 	}
 
@@ -34,7 +35,7 @@ func TestCorrelatorMatch(t *testing.T) {
 
 func TestCorrelatorExpire(t *testing.T) {
 	corr := NewCorrelator(config.CorrelatorConfig{TTL: 1 * time.Second})
-	
+
 	// Should expire
 	req1 := Request{
 		Key:     RequestKey{Pid: 2, Fd: 5},
