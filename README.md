@@ -75,6 +75,12 @@ Regenerate eBPF bindings/object:
 make generate-ebpf
 ```
 
+On macOS (no local `bpftool`/Linux kernel), regenerate inside a container:
+
+```bash
+make generate-ebpf-docker
+```
+
 Generate both:
 
 ```bash
@@ -89,10 +95,16 @@ make generate-vmlinux
 
 > The eBPF Go bindings (`tracker_bpf.go`) and compiled object (`tracker_bpf.o`)
 > are checked in — they are architecture-independent (little-endian eBPF) and
-> keep normal builds toolchain-free. `vmlinux.h` is generated *transiently* by
-> `make generate-vmlinux` (requires a Linux host with `bpftool` and a
-> BTF-enabled kernel, e.g. `Dockerfile.builder`) and is gitignored; it is only
-> needed when regenerating the eBPF bindings.
+> keep normal builds toolchain-free. `vmlinux.h` is generated *transiently* when
+> regenerating the bindings (requires a Linux host with `bpftool` and a
+> BTF-enabled kernel, e.g. `Dockerfile.builder`) and is gitignored.
+>
+> **Regeneration workflow:** edit `internal/bpf/tracker.c` → run
+> `make generate-ebpf-docker` (macOS) or `make generate-ebpf` (Linux) → commit
+> `tracker.c`, `tracker_bpf.go`, and `tracker_bpf.o` together. Regeneration is
+> reproducible — verified byte-identical on Docker Desktop's BTF-enabled kernel.
+> The normal Docker image build (`make docker-agent`) never regenerates; it
+> ships the committed object, so builds are deterministic and toolchain-free.
 
 Container images:
 

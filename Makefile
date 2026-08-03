@@ -1,19 +1,23 @@
 .PHONY: help build build-agent build-server docker-agent docker-server manifests \
-        generate generate-proto generate-ebpf generate-vmlinux clean
+        generate generate-proto generate-ebpf generate-ebpf-docker generate-vmlinux \
+        builder-image clean
 
 PROTO_FILE := internal/sender/log.proto
 BPF_DIR := internal/bpf
 VMLINUX_FILE := $(BPF_DIR)/vmlinux.h
+BUILDER_IMAGE := heimdall-builder
 
 help:
 	@echo "Available targets:"
-	@echo "  make build            Build local agent and server binaries"
-	@echo "  make generate         Generate proto and eBPF artifacts"
-	@echo "  make generate-proto   Regenerate gRPC/protobuf Go files"
-	@echo "  make generate-ebpf    Regenerate eBPF Go bindings/object files"
-	@echo "  make docker-agent     Build heimdall-agent Docker image"
-	@echo "  make docker-server    Build heimdall-server Docker image"
-	@echo "  make manifests        Apply Kubernetes manifests"
+	@echo "  make build               Build local agent and server binaries"
+	@echo "  make generate            Generate proto and eBPF artifacts"
+	@echo "  make generate-proto      Regenerate gRPC/protobuf Go files"
+	@echo "  make generate-ebpf       Regenerate eBPF bindings/object (needs Linux + toolchain)"
+	@echo "  make generate-ebpf-docker Regenerate eBPF bindings/object in a container (macOS-friendly)"
+	@echo "  make builder-image       Build the toolchain image (Dockerfile.builder)"
+	@echo "  make docker-agent        Build heimdall-agent Docker image"
+	@echo "  make docker-server       Build heimdall-server Docker image"
+	@echo "  make manifests           Apply Kubernetes manifests"
 
 build: build-agent build-server
 
@@ -41,6 +45,16 @@ generate-vmlinux:
 generate-ebpf: generate-vmlinux
 	@command -v bpf2go >/dev/null 2>&1 || { echo "bpf2go is required"; exit 1; }
 	GOOS=linux GOARCH=amd64 go generate ./internal/bpf/...
+
+builder-image:
+	@docker image inspect $(BUILDER_IMAGE) >/dev/null 2>&1 || \
+		docker build -t $(BUILDER_IMAGE) -f Dockerfile.builder .
+
+generate-ebpf-docker: builder-image
+	docker run --rm -v $(CURDIR):/work -w /work $(BUILDER_IMAGE) bash -c \
+		'bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/bpf/vmlinux.h && \
+		cd internal/bpf && \
+		GOPACKAGE=bpf GOARCH=amd64 bpf2go -target bpf Tracker tracker.c -- -I -O2 -g0'
 
 docker-agent:
 	docker build -t heimdall-agent:latest -f Dockerfile.agent .
