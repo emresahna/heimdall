@@ -87,6 +87,13 @@ Generate kernel header used by eBPF:
 make generate-vmlinux
 ```
 
+> The eBPF Go bindings (`tracker_bpf.go`) and compiled object (`tracker_bpf.o`)
+> are checked in — they are architecture-independent (little-endian eBPF) and
+> keep normal builds toolchain-free. `vmlinux.h` is generated *transiently* by
+> `make generate-vmlinux` (requires a Linux host with `bpftool` and a
+> BTF-enabled kernel, e.g. `Dockerfile.builder`) and is gitignored; it is only
+> needed when regenerating the eBPF bindings.
+
 Container images:
 
 ```bash
@@ -154,7 +161,7 @@ All namespaced resources are set to `default` in `deploy/k8s`.
 - **At-most-once delivery.** Batches are retried (with backoff) and then dropped on prolonged outages; there is no local spool.
 - **Best-effort correlation.** Requests and responses are paired by `(pid, fd)`; fd reuse can mispair entries.
 - **No body data.** Only the request line (method/path) and response status line are stored; the `payload` column is reserved but unused.
-- **amd64 BPF object.** The committed eBPF object targets amd64 little-endian.
+- **Little-endian BPF object.** The committed eBPF object is `bpfel` (works on amd64 and arm64 nodes); big-endian architectures are unsupported.
 - **No authentication.** gRPC and HTTP endpoints are unauthenticated and TLS is off by default.
 
 ## License
