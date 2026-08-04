@@ -79,6 +79,9 @@ func main() {
 			Addr:              ":" + cfg.MetricsPort,
 			Handler:           promhttp.Handler(),
 			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       120 * time.Second,
 		}
 		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("metrics server error: %v", err)

@@ -36,6 +36,11 @@ func (s *HttpServer) Handler() http.Handler {
 }
 
 func (s *HttpServer) handleHealth(w http.ResponseWriter, _ *http.Request) {
+	if s.checker != nil && !s.checker.IsHealthy() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("unhealthy"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
 }

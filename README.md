@@ -166,6 +166,14 @@ All namespaced resources are set to `default` in `deploy/k8s`.
 3. Check server logs for ingest/DB errors.
 4. Ensure privileged agent runtime and required mounts (`/sys/kernel/debug`, `/sys/fs/bpf`).
 
+## Health probes
+
+The server's `/healthz` (liveness) and `/readyz` (readiness) probes are database-aware: they return
+`503` when the ClickHouse connection is unhealthy. Because the server is a single-node deployment,
+liveness and readiness share the same semantics — a ClickHouse outage will be observed by k8s and may
+restart a degraded server pod, which is intended behavior. If `/healthz` fails, check ClickHouse
+connectivity (config, credentials, DNS) rather than the server binary itself.
+
 ## Limitations
 
 - **Plaintext HTTP/1.x only.** Capture hooks syscall tracepoints; TLS traffic (OpenSSL, Go TLS, sidecars) and HTTP/2 are not detected.

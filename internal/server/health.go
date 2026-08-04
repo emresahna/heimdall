@@ -63,11 +63,6 @@ func (s *HealthServer) Watch(
 	return nil
 }
 
-// RegisterStandardHealth registers the standard gRPC health service using a default server
-func RegisterStandardHealth(s *grpc.Server) {
-	grpc_health_v1.RegisterHealthServer(s, NewHealthServer())
-}
-
 // RegisterHealthService registers the health service on a gRPC server with a specific server instance
 func RegisterHealthService(s *grpc.Server, healthServer *HealthServer) {
 	grpc_health_v1.RegisterHealthServer(s, healthServer)

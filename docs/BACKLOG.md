@@ -5,7 +5,8 @@ following `.ai/templates/backlog-template.md`.
 
 **Purpose:** single source of truth for what to build next, in what order, and why.
 **Usage:** prompts 03 (implementation planning) and 04 (feature implementation) select one epic from
-this document and produce `IMPLEMENTATION_PLAN.md`.
+this document and produce an implementation plan under `docs/plans/` named `EPIC-<NNN>-<slug>.md`
+(e.g. `docs/plans/EPIC-001-honest-health-endpoints.md`).
 **Update policy:** never delete historical reasoning. Append new entries, update status, and log
 changes in [Backlog History](#backlog-history). Priorities are impact/ROI-driven, P0 → P2.
 

@@ -36,20 +36,35 @@ func TestReadyzUnhealthy(t *testing.T) {
 	}
 }
 
-func TestHealthzAlwaysOK(t *testing.T) {
-	for _, checker := range []HealthChecker{nil, fakeChecker{healthy: true}, fakeChecker{healthy: false}} {
-		var s *HttpServer
-		if checker == nil {
-			s = NewHttpServer(nil)
-		} else {
-			s = NewHttpServer(nil, checker)
-		}
+func TestHealthzHealthy(t *testing.T) {
+	s := NewHttpServer(nil, fakeChecker{healthy: true})
 
-		rec := httptest.NewRecorder()
-		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
-		}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestHealthzUnhealthy(t *testing.T) {
+	s := NewHttpServer(nil, fakeChecker{healthy: false})
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status %d, got %d", http.StatusServiceUnavailable, rec.Code)
+	}
+}
+
+func TestHealthzNoChecker(t *testing.T) {
+	s := NewHttpServer(nil)
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 }

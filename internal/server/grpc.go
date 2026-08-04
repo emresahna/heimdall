@@ -22,7 +22,6 @@ func NewGrpcServer(db *storage.DB) *GrpcServer {
 
 func (s *GrpcServer) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, error) {
 	metrics.EventsReceivedTotal.Add(float64(len(req.Entries)))
-	log.Printf("Received batch of %d logs", len(req.Entries))
 	logs := make([]models.LogEntry, 0, len(req.Entries))
 	for _, entry := range req.Entries {
 		logs = append(logs, models.LogEntry{

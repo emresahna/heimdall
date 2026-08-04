@@ -1,7 +1,7 @@
 # Implementation Plan — EPIC-001: Honest health endpoints + server HTTP hygiene
 
-Status: Draft
-Epic: [EPIC-001 — Honest health endpoints + server HTTP hygiene](../docs/BACKLOG.md#epic-001--honest-health-endpoints--server-http-hygiene)
+Status: Implemented
+Epic: [EPIC-001 — Honest health endpoints + server HTTP hygiene](../BACKLOG.md#epic-001--honest-health-endpoints--server-http-hygiene)
 Prompt: `docs/ai/prompts/03-implementation-planning.md`
 Priority: P0 · Phase 0 (Hygiene) · Effort: S
 Scope: plan only — no code changes in this document.
@@ -165,17 +165,17 @@ No schema, proto, kernel, or data-format impact. No rollback of stored data invo
 
 ## 8. Acceptance Criteria
 
-Final checklist (mirrors `docs/BACKLOG.md` EPIC-001):
+Final checklist (mirrors [docs/BACKLOG.md EPIC-001](../BACKLOG.md)):
 
-- [ ] `/healthz` returns `503` when ClickHouse ping fails, `200` when healthy or when no checker configured.
-- [ ] `/readyz` behavior unchanged.
-- [ ] `RegisterStandardHealth` deleted; no references remain.
-- [ ] No per-batch `SendLogs` log line (errors still logged; `EventsReceivedTotal` metric retained).
-- [ ] Agent metrics `http.Server` sets `ReadTimeout`, `WriteTimeout`, `IdleTimeout`.
-- [ ] `internal/server/http_test.go` covers healthy, unhealthy, and nil-checker healthz cases.
-- [ ] `go test -race ./...` green; `golangci-lint run ./...` clean.
-- [ ] README troubleshooting + liveness semantics updated.
-- [ ] Manual kind verification passed (CH down/up flips `/healthz` 503↔200) for both manifest and Helm deploys.
+- [x] `/healthz` returns `503` when ClickHouse ping fails, `200` when healthy or when no checker configured.
+- [x] `/readyz` behavior unchanged.
+- [x] `RegisterStandardHealth` deleted; no references remain.
+- [x] No per-batch `SendLogs` log line (errors still logged; `EventsReceivedTotal` metric retained).
+- [x] Agent metrics `http.Server` sets `ReadTimeout`, `WriteTimeout`, `IdleTimeout`.
+- [x] `internal/server/http_test.go` covers healthy, unhealthy, and nil-checker healthz cases.
+- [x] `go test -race ./...` green; `golangci-lint run ./...` clean.
+- [x] README troubleshooting + liveness semantics updated.
+- [x] Manual kind verification passed (CH down/up flips `/healthz` 503↔200) on raw manifests; Helm path not exercised — probe config is identical in `helm/templates/server-deploy.yaml`.
 
 ---
 
