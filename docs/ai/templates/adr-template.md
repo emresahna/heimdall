@@ -1,0 +1,4 @@
+# ADR
+## Context
+## Decision
+## Consequences

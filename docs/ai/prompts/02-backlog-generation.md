@@ -1,0 +1,2 @@
+# Backlog Generation
+Generate or update docs/BACKLOG.md as the canonical engineering roadmap. Preserve history, prioritize by impact/ROI, include evidence, implementation strategy, risks, acceptance criteria, testing, benchmarks, ADRs, and roadmap phases.
