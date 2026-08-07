@@ -238,7 +238,9 @@ connectivity (config, credentials, DNS) rather than the server binary itself.
 - **Plaintext HTTP/1.x only.** Capture hooks syscall tracepoints; TLS traffic (OpenSSL, Go TLS, sidecars) and HTTP/2 are not detected.
 - **Whole-host capture.** All processes on the node are traced; there is no cgroup/pod scoping yet.
 - **At-most-once delivery.** Batches are retried (with backoff) and then dropped on prolonged outages; there is no local spool.
-- **Best-effort correlation.** Requests and responses are paired by `(pid, fd)`; fd reuse can mispair entries.
+- **Ordered keyed correlation.** Requests and responses are paired by `(pid, fd)` plus a kernel
+  monotonic per-`(pid, fd)` `seqno`; a FIFO matches the oldest request on each connection, so keep-alive
+  fd reuse no longer mispairs a late response with a newer request.
 - **No body data by default.** Only the request line (method/path) and response status line are
   stored. The `payload` column is populated only with opt-in request-head sampling
   (`HTTP_SAMPLE_BYTES > 0`) **and** requires a configured redactor before any bytes are stored

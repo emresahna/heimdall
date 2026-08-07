@@ -19,6 +19,12 @@ type TrackerReadArgsT struct {
 	_   [4]byte
 }
 
+type TrackerSeqKeyT struct {
+	_   structs.HostLayout
+	Pid uint32
+	Fd  int32
+}
+
 // LoadTracker returns the embedded CollectionSpec for Tracker.
 func LoadTracker() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_TrackerBytes)
@@ -76,6 +82,7 @@ type TrackerProgramSpecs struct {
 type TrackerMapSpecs struct {
 	Events       *ebpf.MapSpec `ebpf:"events"`
 	PendingReads *ebpf.MapSpec `ebpf:"pending_reads"`
+	SeqCounters  *ebpf.MapSpec `ebpf:"seq_counters"`
 }
 
 // TrackerVariableSpecs contains global variables before they are loaded into the kernel.
@@ -106,12 +113,14 @@ func (o *TrackerObjects) Close() error {
 type TrackerMaps struct {
 	Events       *ebpf.Map `ebpf:"events"`
 	PendingReads *ebpf.Map `ebpf:"pending_reads"`
+	SeqCounters  *ebpf.Map `ebpf:"seq_counters"`
 }
 
 func (m *TrackerMaps) Close() error {
 	return _TrackerClose(
 		m.Events,
 		m.PendingReads,
+		m.SeqCounters,
 	)
 }
 

@@ -12,6 +12,7 @@ func TestCorrelatorMatch(t *testing.T) {
 	corr := NewCorrelator(config.CorrelatorConfig{TTL: 5 * time.Second})
 	req := Request{
 		Key:     RequestKey{Pid: 1, Fd: 3},
+		Seqno:   1,
 		Method:  "GET",
 		Path:    "/healthz",
 		Started: time.Now(),
@@ -30,6 +31,60 @@ func TestCorrelatorMatch(t *testing.T) {
 	_, ok = corr.Match(1, 3)
 	if ok {
 		t.Fatalf("expected no match after first match")
+	}
+}
+
+// TestCorrelatorFdReuse proves that sequential requests on the same (pid, fd)
+// are matched oldest-first, so a reuse/late-response can no longer pair with
+// the wrong request.
+func TestCorrelatorFdReuse(t *testing.T) {
+	corr := NewCorrelator(config.CorrelatorConfig{TTL: 5 * time.Second})
+	now := time.Now()
+	key := RequestKey{Pid: 42, Fd: 7}
+
+	for i, seq := range []uint32{1, 2, 3} {
+		corr.Add(Request{
+			Key:     key,
+			Seqno:   seq,
+			Method:  "GET",
+			Path:    "/req" + string(rune('A'+i)),
+			Started: now,
+		})
+	}
+
+	// Same fd reused; responses must pair oldest-first.
+	for i, want := range []string{"/reqA", "/reqB", "/reqC"} {
+		got, ok := corr.Match(key.Pid, key.Fd)
+		if !ok {
+			t.Fatalf("expected match %d", i)
+		}
+		if got.Path != want {
+			t.Fatalf("match %d: expected %s, got %s", i, want, got.Path)
+		}
+	}
+
+	if _, ok := corr.Match(key.Pid, key.Fd); ok {
+		t.Fatalf("expected no match after exhausting the FIFO")
+	}
+}
+
+// TestCorrelatorMatchOldestSeqno verifies the FIFO is keyed on kernel seqno,
+// not insertion order, so cross-thread ringbuf delivery cannot mispair.
+func TestCorrelatorMatchOldestSeqno(t *testing.T) {
+	corr := NewCorrelator(config.CorrelatorConfig{TTL: 5 * time.Second})
+	now := time.Now()
+	key := RequestKey{Pid: 9, Fd: 1}
+
+	// Delivered out of kernel order (C before A before B).
+	corr.Add(Request{Key: key, Seqno: 3, Path: "/c", Started: now})
+	corr.Add(Request{Key: key, Seqno: 1, Path: "/a", Started: now})
+	corr.Add(Request{Key: key, Seqno: 2, Path: "/b", Started: now})
+
+	for _, want := range []string{"/a", "/b", "/c"} {
+		got, ok := corr.Match(key.Pid, key.Fd)
+		if !ok || got.Path != want {
+			t.Fatalf("expected match for %s, got %q ok=%v", want, got.Path, ok)
+		}
 	}
 }
 

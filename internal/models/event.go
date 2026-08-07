@@ -15,6 +15,7 @@ type Event struct {
 	Pid       uint32
 	Tid       uint32
 	Fd        int32
+	Seqno     uint32
 	CgroupID  uint64
 	Direction Direction
 	Data      []byte

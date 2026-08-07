@@ -19,7 +19,13 @@ struct event_t {
 	u32 data_len;
 	u8 event_type;
 	u8 _pad[3];
+	u32 seqno;
 	char data[MAX_DATA];
+};
+
+struct seq_key_t {
+	u32 pid;
+	s32 fd;
 };
 
 struct read_args_t {
@@ -38,6 +44,13 @@ struct {
 	__type(key, u32);
 	__type(value, struct read_args_t);
 } pending_reads SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 65535);
+	__type(key, struct seq_key_t);
+	__type(value, u32);
+} seq_counters SEC(".maps");
 
 static __always_inline int is_http_request(const char *buf) {
 	if (buf[0] == 'G' && buf[1] == 'E' && buf[2] == 'T' && buf[3] == ' ') return 1;
@@ -83,6 +96,20 @@ static __always_inline int emit_event(const char *buf, size_t count, s32 fd, u8 
 	e->fd = fd;
 	e->data_len = len;
 	e->event_type = event_type;
+	e->seqno = 0;
+
+	if (event_type == EVENT_REQUEST) {
+		struct seq_key_t key = { .pid = pid, .fd = fd };
+		u32 *seq = bpf_map_lookup_elem(&seq_counters, &key);
+		u32 next;
+		if (seq) {
+			next = *seq + 1;
+		} else {
+			next = 1;
+		}
+		bpf_map_update_elem(&seq_counters, &key, &next, BPF_ANY);
+		e->seqno = next;
+	}
 
 	if (bpf_probe_read_user(e->data, len, buf) != 0) {
 		bpf_ringbuf_discard(e, 0);

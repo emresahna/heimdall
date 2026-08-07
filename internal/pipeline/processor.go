@@ -81,6 +81,7 @@ func (p *Processor) HandleEvent(ev models.Event) {
 				Fd:  ev.Fd,
 			},
 			Tid:      ev.Tid,
+			Seqno:    ev.Seqno,
 			CgroupID: ev.CgroupID,
 			Method:   method,
 			Path:     path,

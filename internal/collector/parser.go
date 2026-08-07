@@ -27,6 +27,7 @@ type rawEvent struct {
 	DataLen   uint32
 	EventType uint8
 	_         [3]byte
+	Seqno     uint32
 	Data      [128]byte
 }
 
@@ -59,6 +60,7 @@ func parseEvent(raw []byte) (models.Event, error) {
 		Pid:       rawEvt.Pid,
 		Tid:       rawEvt.Tid,
 		Fd:        rawEvt.Fd,
+		Seqno:     rawEvt.Seqno,
 		Direction: models.Direction(rawEvt.EventType),
 		Data:      bytes.TrimRight(rawEvt.Data[:realDataLen], "\x00"),
 	}

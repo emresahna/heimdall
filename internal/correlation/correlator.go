@@ -20,6 +20,7 @@ type RequestKey struct {
 type Request struct {
 	Key      RequestKey
 	Tid      uint32
+	Seqno    uint32
 	CgroupID uint64
 	Method   string
 	Path     string
@@ -30,7 +31,7 @@ type Request struct {
 // shard holds a portion of the correlation map with its own mutex
 type shard struct {
 	mu       sync.Mutex
-	requests map[RequestKey]Request
+	requests map[RequestKey][]Request
 }
 
 // Correlator uses sharded maps to reduce contention under high load
@@ -52,7 +53,7 @@ func NewCorrelator(cfg config.CorrelatorConfig) *Correlator {
 
 	shards := make([]shard, shardCount)
 	for i := range shards {
-		shards[i].requests = make(map[RequestKey]Request)
+		shards[i].requests = make(map[RequestKey][]Request)
 	}
 
 	return &Correlator{
@@ -67,16 +68,41 @@ func (c *Correlator) shardIndex(pid uint32) uint32 {
 	return pid & c.shardMask
 }
 
-// Add adds a request to the correlation map
+// Add adds a request to the correlation map, keeping the per-key FIFO ordered
+// by kernel seqno so the oldest request is always at the head.
 func (c *Correlator) Add(req Request) {
 	idx := c.shardIndex(req.Key.Pid)
 	shard := &c.shards[idx]
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
-	shard.requests[req.Key] = req
+
+	queue := shard.requests[req.Key]
+	if len(queue) == 0 {
+		shard.requests[req.Key] = []Request{req}
+		return
+	}
+
+	insertAt := len(queue)
+	for i, queued := range queue {
+		if req.Seqno < queued.Seqno {
+			insertAt = i
+			break
+		}
+	}
+	if insertAt == len(queue) {
+		shard.requests[req.Key] = append(queue, req)
+		return
+	}
+
+	queue = append(queue, Request{})
+	copy(queue[insertAt+1:], queue[insertAt:])
+	queue[insertAt] = req
+	shard.requests[req.Key] = queue
 }
 
-// Match finds and removes a matching request from the correlation map
+// Match finds and removes the oldest matching request for a given (pid, fd).
+// Responses on one HTTP/1.x connection arrive in request order, so the FIFO
+// head is the correct pairing even when the fd has been reused.
 func (c *Correlator) Match(pid uint32, fd int32) (Request, bool) {
 	idx := c.shardIndex(pid)
 	shard := &c.shards[idx]
@@ -84,11 +110,18 @@ func (c *Correlator) Match(pid uint32, fd int32) (Request, bool) {
 	defer shard.mu.Unlock()
 
 	key := RequestKey{Pid: pid, Fd: fd}
-	req, ok := shard.requests[key]
-	if ok {
-		delete(shard.requests, key)
+	queue := shard.requests[key]
+	if len(queue) == 0 {
+		return Request{}, false
 	}
-	return req, ok
+
+	req := queue[0]
+	if len(queue) == 1 {
+		delete(shard.requests, key)
+	} else {
+		shard.requests[key] = queue[1:]
+	}
+	return req, true
 }
 
 // Expire removes expired entries from all shards
@@ -97,10 +130,19 @@ func (c *Correlator) Expire(now time.Time) int {
 	for i := range c.shards {
 		shard := &c.shards[i]
 		shard.mu.Lock()
-		for key, req := range shard.requests {
-			if now.Sub(req.Started) > c.ttl {
+		for key, queue := range shard.requests {
+			kept := queue[:0]
+			for _, req := range queue {
+				if now.Sub(req.Started) > c.ttl {
+					removed++
+					continue
+				}
+				kept = append(kept, req)
+			}
+			if len(kept) == 0 {
 				delete(shard.requests, key)
-				removed++
+			} else {
+				shard.requests[key] = kept
 			}
 		}
 		shard.mu.Unlock()
