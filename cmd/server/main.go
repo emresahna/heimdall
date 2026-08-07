@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -18,8 +20,18 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+var version = "dev"
+
 func main() {
+	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
+
 	cfg := config.Load()
+	log.Printf("starting Heimdall server version %s", version)
 
 	db, err := storage.NewClickHouse(cfg.ClickHouseConfig)
 	if err != nil {
@@ -53,7 +65,7 @@ func main() {
 
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.HTTPPort,
-		Handler:           server.NewHttpServer(db, db).Handler(),
+		Handler:           server.NewHttpServerWithVersion(db, version, db).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,

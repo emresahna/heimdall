@@ -4,8 +4,8 @@
 agent:
   enabled: true
   image:
-    repository: heimdall-agent
-    tag: latest
+    repository: ghcr.io/emresahna/heimdall-agent
+    tag: ""
     pullPolicy: IfNotPresent
   resources:
     limits:
@@ -22,8 +22,8 @@ server:
   enabled: true
   replicaCount: 1
   image:
-    repository: heimdall-server
-    tag: latest
+    repository: ghcr.io/emresahna/heimdall-server
+    tag: ""
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP

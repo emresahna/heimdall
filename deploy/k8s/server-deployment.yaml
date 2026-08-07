@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: heimdall-server:latest
+        image: ghcr.io/emresahna/heimdall-server:v0.1.0
         imagePullPolicy: IfNotPresent
         env:
         - name: CLICKHOUSE_ADDR

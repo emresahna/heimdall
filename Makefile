@@ -1,15 +1,20 @@
 .PHONY: help build build-agent build-server docker-agent docker-server manifests \
         generate generate-proto generate-ebpf generate-ebpf-docker generate-vmlinux \
-        builder-image clean
+        builder-image helm-lint helm-template changelog clean
 
 PROTO_FILE := internal/sender/log.proto
 BPF_DIR := internal/bpf
 VMLINUX_FILE := $(BPF_DIR)/vmlinux.h
 BUILDER_IMAGE := heimdall-builder
+VERSION ?= dev
+REVISION ?= $(shell git rev-parse --short HEAD)
+HELM ?= helm
+HELM_RELEASE ?= heimdall
+HELM_NAMESPACE ?= default
 
 help:
 	@echo "Available targets:"
-	@echo "  make build               Build local agent and server binaries"
+	@echo "  make build               Build local agent and server binaries (VERSION=dev)"
 	@echo "  make generate            Generate proto and eBPF artifacts"
 	@echo "  make generate-proto      Regenerate gRPC/protobuf Go files"
 	@echo "  make generate-ebpf       Regenerate eBPF bindings/object (needs Linux + toolchain)"
@@ -17,15 +22,18 @@ help:
 	@echo "  make builder-image       Build the toolchain image (Dockerfile.builder)"
 	@echo "  make docker-agent        Build heimdall-agent Docker image"
 	@echo "  make docker-server       Build heimdall-server Docker image"
+	@echo "  make helm-lint           Lint the Helm chart"
+	@echo "  make helm-template       Render the Helm chart"
+	@echo "  make changelog           Regenerate CHANGELOG.md (requires git-cliff)"
 	@echo "  make manifests           Apply Kubernetes manifests"
 
 build: build-agent build-server
 
 build-agent:
-	CGO_ENABLED=0 go build -o bin/agent ./cmd/agent
+	CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION)" -o bin/agent ./cmd/agent
 
 build-server:
-	CGO_ENABLED=0 go build -o bin/server ./cmd/server
+	CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION)" -o bin/server ./cmd/server
 
 generate: generate-proto generate-ebpf
 
@@ -57,10 +65,20 @@ generate-ebpf-docker: builder-image
 		GOPACKAGE=bpf GOARCH=amd64 bpf2go -target bpf Tracker tracker.c -- -I -O2 -g0'
 
 docker-agent:
-	docker build -t heimdall-agent:latest -f Dockerfile.agent .
+	docker build --build-arg VERSION=$(VERSION) --build-arg REVISION=$(REVISION) -t heimdall-agent:$(VERSION) -f Dockerfile.agent .
 
 docker-server:
-	docker build -t heimdall-server:latest -f Dockerfile.server .
+	docker build --build-arg VERSION=$(VERSION) --build-arg REVISION=$(REVISION) -t heimdall-server:$(VERSION) -f Dockerfile.server .
+
+helm-lint:
+	$(HELM) lint helm
+
+helm-template:
+	$(HELM) template $(HELM_RELEASE) helm --namespace $(HELM_NAMESPACE)
+
+changelog:
+	@command -v git-cliff >/dev/null 2>&1 || { echo "git-cliff is required"; exit 1; }
+	git-cliff --config cliff.toml --output CHANGELOG.md
 
 manifests:
 	kubectl apply -f deploy/k8s/clickhouse.yaml

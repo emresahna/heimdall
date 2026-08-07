@@ -1,6 +1,7 @@
 package server
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -37,13 +38,21 @@ func TestReadyzUnhealthy(t *testing.T) {
 }
 
 func TestHealthzHealthy(t *testing.T) {
-	s := NewHttpServer(nil, fakeChecker{healthy: true})
+	s := NewHttpServerWithVersion(nil, "v0.1.0", fakeChecker{healthy: true})
 
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	body, err := io.ReadAll(rec.Result().Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if got, want := string(body), "ok\nversion: v0.1.0\n"; got != want {
+		t.Fatalf("expected body %q, got %q", want, got)
 	}
 }
 

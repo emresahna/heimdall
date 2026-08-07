@@ -1,0 +1,120 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.ref_name }}
+      REGISTRY: ${{ vars.CONTAINER_REGISTRY || 'ghcr.io' }}
+      IMAGE_NAMESPACE: ${{ vars.IMAGE_NAMESPACE || github.repository_owner }}
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          chart_version="$(awk -F ': ' '$1 == "version" { print $2; exit }' helm/Chart.yaml)"
+          app_version="$(awk -F ': ' '$1 == "appVersion" { gsub(/\"/, "", $2); print $2; exit }' helm/Chart.yaml)"
+          expected_chart_version="${VERSION#v}"
+          test "${chart_version}" = "${expected_chart_version}"
+          test "${app_version}" = "${VERSION}"
+          grep -Eq "^## \[${expected_chart_version}\]" CHANGELOG.md
+          awk -v heading="## [${expected_chart_version}]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md
+          echo "chart_version=${chart_version}" >> "${GITHUB_OUTPUT}"
+          echo "image_agent=${REGISTRY}/${IMAGE_NAMESPACE}/heimdall-agent" >> "${GITHUB_OUTPUT}"
+          echo "image_server=${REGISTRY}/${IMAGE_NAMESPACE}/heimdall-server" >> "${GITHUB_OUTPUT}"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.3"
+          cache: true
+
+      - name: Verify Go quality
+        run: |
+          go vet ./...
+          go test -race ./...
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Test versioned binaries
+        run: |
+          make VERSION="${VERSION}" build
+          test "$(bin/agent --version)" = "${VERSION}"
+          test "$(bin/server --version)" = "${VERSION}"
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+
+      - name: Validate Helm chart
+        run: |
+          helm lint helm
+          helm template heimdall helm --namespace default > rendered.yaml
+          grep -Eq "image:.*heimdall-agent:${VERSION}" rendered.yaml
+          grep -Eq "image:.*heimdall-server:${VERSION}" rendered.yaml
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY == 'ghcr.io' && github.actor || secrets.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY == 'ghcr.io' && secrets.GITHUB_TOKEN || secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push agent image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.agent
+          push: true
+          tags: ${{ steps.metadata.outputs.image_agent }}:${{ env.VERSION }}
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            REVISION=${{ github.sha }}
+
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.server
+          push: true
+          tags: ${{ steps.metadata.outputs.image_server }}:${{ env.VERSION }}
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            REVISION=${{ github.sha }}
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p dist
+          helm package helm --destination dist
+          sha256sum dist/*.tgz > dist/SHA256SUMS
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: |
+            dist/*.tgz
+            dist/SHA256SUMS
+          prerelease: ${{ contains(env.VERSION, '-') }}

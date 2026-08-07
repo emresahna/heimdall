@@ -63,6 +63,15 @@ Build binaries:
 make build
 ```
 
+Local builds identify themselves as `dev`. Build a binary with an explicit release version and verify
+it without starting the service:
+
+```bash
+make VERSION=v0.1.0 build
+bin/agent --version
+bin/server --version
+```
+
 Regenerate protobuf and gRPC files:
 
 ```bash
@@ -112,6 +121,54 @@ Container images:
 make docker-agent
 make docker-server
 ```
+
+Both commands tag local images with `VERSION` (default: `dev`), for example
+`make VERSION=v0.1.0 docker-agent`.
+
+## Releases
+
+Releases use an immutable SemVer Git tag (`vMAJOR.MINOR.PATCH`, optionally with a prerelease suffix).
+The tag must point to a commit where `helm/Chart.yaml` has matching metadata:
+
+- `version: MAJOR.MINOR.PATCH`
+- `appVersion: "vMAJOR.MINOR.PATCH"`
+
+Prepare a release on a reviewed branch:
+
+```bash
+make changelog # requires git-cliff
+make VERSION=v0.1.0 build
+bin/agent --version
+bin/server --version
+helm lint helm
+helm template heimdall helm --namespace default
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The tag workflow verifies the chart metadata and matching `CHANGELOG.md` section, runs Go and Helm
+checks, then publishes immutable `ghcr.io/emresahna/heimdall-agent:v0.1.0` and
+`ghcr.io/emresahna/heimdall-server:v0.1.0` images plus `heimdall-0.1.0.tgz` and checksums on the
+GitHub Release. Repository Actions variables `CONTAINER_REGISTRY` and `IMAGE_NAMESPACE` can select
+another registry/namespace; non-GHCR registries also require `REGISTRY_USERNAME` and
+`REGISTRY_PASSWORD` repository secrets.
+
+Install or upgrade a chart release with its default versioned image references:
+
+```bash
+helm upgrade --install heimdall ./heimdall-0.1.0.tgz --namespace heimdall --create-namespace
+```
+
+Inspect the deployed server version with `curl http://<server>:8080/healthz`; the successful response
+includes `version: v0.1.0`. Roll back a deployment with:
+
+```bash
+helm rollback heimdall <revision> --namespace heimdall
+```
+
+Raw Kubernetes manifests use the same explicit image tags. Update their image references deliberately
+for every release; `local_test.sh` builds and loads the matching `VERSION` into kind (default:
+`v0.1.0`).
 
 ## Configuration
 

@@ -7,6 +7,9 @@ KIND_CONFIG="${KIND_CONFIG:-${ROOT_DIR}/kind-config.yaml}"
 CLICKHOUSE_TIMEOUT="${CLICKHOUSE_TIMEOUT:-240s}"
 SERVER_TIMEOUT="${SERVER_TIMEOUT:-240s}"
 AGENT_TIMEOUT="${AGENT_TIMEOUT:-240s}"
+VERSION="${VERSION:-v0.1.0}"
+AGENT_IMAGE="ghcr.io/emresahna/heimdall-agent:${VERSION}"
+SERVER_IMAGE="ghcr.io/emresahna/heimdall-server:${VERSION}"
 
 ACTION="${1:-run}"
 EXPECTED_CONTEXT="kind-${CLUSTER_NAME}"
@@ -53,11 +56,11 @@ build_and_load_images() {
   fi
 
   cd "${ROOT_DIR}"
-  docker build --no-cache -t heimdall-agent:latest -f Dockerfile.agent .
-  docker build --no-cache -t heimdall-server:latest -f Dockerfile.server .
+  docker build --no-cache --build-arg VERSION="${VERSION}" -t "${AGENT_IMAGE}" -f Dockerfile.agent .
+  docker build --no-cache --build-arg VERSION="${VERSION}" -t "${SERVER_IMAGE}" -f Dockerfile.server .
 
-  kind load docker-image --name "${CLUSTER_NAME}" heimdall-agent:latest
-  kind load docker-image --name "${CLUSTER_NAME}" heimdall-server:latest
+  kind load docker-image --name "${CLUSTER_NAME}" "${AGENT_IMAGE}"
+  kind load docker-image --name "${CLUSTER_NAME}" "${SERVER_IMAGE}"
   echo "Images built and loaded into kind/${CLUSTER_NAME}."
 }
 
@@ -69,6 +72,9 @@ deploy_stack() {
   kubectl apply -f deploy/k8s/server-deployment.yaml
   kubectl apply -f deploy/k8s/agent-rbac.yaml
   kubectl apply -f deploy/k8s/agent-ds.yaml
+
+  kubectl set image deployment/heimdall-server -n default "server=${SERVER_IMAGE}"
+  kubectl set image daemonset/heimdall-agent -n default "agent=${AGENT_IMAGE}"
 
   kubectl rollout status statefulset/clickhouse -n default --timeout="${CLICKHOUSE_TIMEOUT}"
   kubectl rollout status deployment/heimdall-server -n default --timeout="${SERVER_TIMEOUT}"

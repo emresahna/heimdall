@@ -19,7 +19,7 @@ spec:
       serviceAccountName: heimdall-agent
       containers:
       - name: agent
-        image: heimdall-agent:latest
+        image: ghcr.io/emresahna/heimdall-agent:v0.1.0
         imagePullPolicy: IfNotPresent
         securityContext:
           privileged: true

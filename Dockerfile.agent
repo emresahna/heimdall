@@ -1,5 +1,7 @@
 FROM golang:1.25.3-bookworm AS builder
 
+ARG VERSION=dev
+
 WORKDIR /app
 
 COPY go.mod go.sum ./
@@ -7,9 +9,16 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/agent ./cmd/agent
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o /out/agent ./cmd/agent
 
 FROM debian:bookworm-slim
+
+ARG VERSION=dev
+ARG REVISION=unknown
+
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.source="https://github.com/emresahna/heimdall"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \

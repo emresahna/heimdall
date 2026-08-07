@@ -15,14 +15,19 @@ import (
 type HttpServer struct {
 	db      *storage.DB
 	checker HealthChecker
+	version string
 }
 
 func NewHttpServer(db *storage.DB, checker ...HealthChecker) *HttpServer {
+	return NewHttpServerWithVersion(db, "dev", checker...)
+}
+
+func NewHttpServerWithVersion(db *storage.DB, version string, checker ...HealthChecker) *HttpServer {
 	var c HealthChecker
 	if len(checker) > 0 {
 		c = checker[0]
 	}
-	return &HttpServer{db: db, checker: c}
+	return &HttpServer{db: db, checker: c, version: version}
 }
 
 func (s *HttpServer) Handler() http.Handler {
@@ -42,7 +47,7 @@ func (s *HttpServer) handleHealth(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("ok"))
+	_, _ = w.Write([]byte("ok\nversion: " + s.version + "\n"))
 }
 
 func (s *HttpServer) handleReadyz(w http.ResponseWriter, _ *http.Request) {

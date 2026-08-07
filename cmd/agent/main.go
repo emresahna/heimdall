@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -22,8 +24,18 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+var version = "dev"
+
 func main() {
+	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
+
 	cfg := config.Load()
+	log.Printf("starting Heimdall agent version %s", version)
 
 	var opts []grpc.DialOption
 	if cfg.UseTLS {

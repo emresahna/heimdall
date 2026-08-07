@@ -40,5 +40,23 @@ jobs:
 
       - name: Build
         run: |
-          CGO_ENABLED=0 go build ./cmd/agent
-          CGO_ENABLED=0 go build ./cmd/server
+          CGO_ENABLED=0 go build -ldflags "-X main.version=dev" ./cmd/agent
+          CGO_ENABLED=0 go build -ldflags "-X main.version=dev" ./cmd/server
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+
+      - name: Lint Helm chart
+        run: helm lint helm
+
+      - name: Render Helm chart
+        run: |
+          helm template heimdall helm --namespace default > rendered.yaml
+          helm template heimdall helm --namespace default \
+            --set clickhouse.enabled=false \
+            --set server.config.clickhouseAddr=clickhouse.example:9000 > rendered-external-clickhouse.yaml
+          ! grep -Eq 'image:.*(heimdall-agent|heimdall-server):latest' rendered.yaml
+          grep -Eq 'image:.*heimdall-agent:v[0-9]' rendered.yaml
+          grep -Eq 'image:.*heimdall-server:v[0-9]' rendered.yaml
