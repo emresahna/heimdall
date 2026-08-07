@@ -1,6 +1,31 @@
 # Implementation Plan — EPIC-002: CI & release discipline
 
-Status: Implemented — first tag publication and kind rollback smoke test remain operational verification
+Status: Implemented and operationally verified via a disposable `v0.1.0-rc.1` prerelease.
+
+Full release path smoke-verified on 2026-08-07:
+
+- Pushed a `v0.1.0-rc.1` SemVer prerelease tag from a disposable commit whose `helm/Chart.yaml`
+  (`version: 0.1.0-rc.1`, `appVersion: "v0.1.0-rc.1"`) and `CHANGELOG.md` heading matched the tag.
+  The tag-only `.github/workflows/release.yml` validated the metadata, built both binaries, verified
+  `--version`, ran `helm lint`/`helm template` against the rendered tag, pushed `ghcr.io/emresahna/heimdall-{agent,server}:v0.1.0-rc.1` (no `latest` written), packaged `heimdall-0.1.0-rc.1.tgz`, and created a
+  GitHub Release marked `prerelease` containing the chart archive and `SHA256SUMS`.
+- Verified OCI labels (`org.opencontainers.image.version=v0.1.0-rc.1`, revision, source), released-binary
+  `--version` output, live server `/healthz` body (`ok` / `version: v0.1.0-rc.1`, 200) and unchanged
+  `/readyz`, packaged-chart lint/render/tag agreement, and a checksum match.
+- Ran a kind rollback smoke test against the packaged chart: installed with the published `v0.1.0-rc.1`
+  image tags, upgraded to `v0.1.0-rc.2`, then `helm rollback heimdall 1` and confirmed both agent and
+  server pods returned to the explicit `v0.1.0-rc.1` tag with `/healthz` reporting that version.
+- Cleaned up the kind release and PVC; returned `main` to stable `0.1.0` metadata. One maintenance
+  note: the kind cluster nodes are `arm64` while this epic's images are `linux/amd64`; the smoke test
+  relied on Docker/qemu emulation at runtime and the label/`--version`/health checks passed.
+
+Deviations from the plan:
+
+- Verification used a prerelease tag (`v0.1.0-rc.1`) rather than a first stable tag, per review guidance to
+  exercise the full path on a disposable release before the first stable tag.
+- The `dist/SHA256SUMS` file embeds the `dist/` path prefix for checksum entries; consumers should
+  verify within a matching directory layout (or with a path override).
+- No registry override beyond GHCR was exercised; GHCR remains the validated default.
 Epic: [EPIC-002 — CI & release discipline](../BACKLOG.md#epic-002--ci--release-discipline)
 Prompt: `docs/ai/prompts/03-implementation-planning.md`
 Priority: P1 · Phase 0 (Hygiene) · Effort: M
@@ -284,14 +309,14 @@ Final checklist (mirrors [docs/BACKLOG.md EPIC-002](../BACKLOG.md)):
   Go checks.
 - [x] Helm agent/server defaults render immutable release tags from `Chart.AppVersion`; no Heimdall
   deployment default uses `latest`.
-- [ ] A semver Git tag validates matching Chart/changelog metadata, produces two versioned images and
+- [x] A semver Git tag validates matching Chart/changelog metadata, produces two versioned images and
   a versioned packaged chart, and publishes a GitHub Release with the chart artifact and notes.
 - [x] Registry hostname/namespace are configurable through documented GitHub Actions configuration;
   GHCR is the working default.
 - [x] `CHANGELOG.md` exists, is generated/reviewed from Conventional Commits, and its matching release
   section supplies the GitHub Release notes.
 - [x] README documents release, upgrade, version inspection, and rollback procedures.
-- [ ] A disposable tag and kind deployment/rollback smoke test have verified the full release path.
+- [x] A disposable tag and kind deployment/rollback smoke test have verified the full release path.
 
 ## 9. Out of Scope / Follow-ups
 
