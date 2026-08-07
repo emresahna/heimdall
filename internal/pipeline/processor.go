@@ -2,12 +2,15 @@ package pipeline
 
 import (
 	"context"
+	"log"
+	"sync"
 	"time"
 
 	"github.com/emresahna/heimdall/internal/correlation"
 	"github.com/emresahna/heimdall/internal/enrichment"
 	"github.com/emresahna/heimdall/internal/metrics"
 	"github.com/emresahna/heimdall/internal/models"
+	"github.com/emresahna/heimdall/internal/redact"
 )
 
 type Processor struct {
@@ -16,8 +19,11 @@ type Processor struct {
 	enricher    enrichment.Enricher
 	batcher     *Batcher
 	node        string
-	sampleMax   int
+	payloadCap  int
+	redactor    redact.Redactor
 	diagnostics *Diagnostics
+
+	redactorWarn sync.Once
 }
 
 func NewProcessor(
@@ -26,7 +32,8 @@ func NewProcessor(
 	enricher enrichment.Enricher,
 	batcher *Batcher,
 	node string,
-	sampleMax int,
+	payloadCap int,
+	redactor redact.Redactor,
 	diagnostics *Diagnostics,
 ) *Processor {
 	return &Processor{
@@ -35,7 +42,8 @@ func NewProcessor(
 		enricher:    enricher,
 		batcher:     batcher,
 		node:        node,
-		sampleMax:   sampleMax,
+		payloadCap:  payloadCap,
+		redactor:    redactor,
 		diagnostics: diagnostics,
 	}
 }
@@ -45,8 +53,8 @@ func (p *Processor) HandleEvent(ev models.Event) {
 	if p.diagnostics != nil {
 		p.diagnostics.IncEventsRead()
 	}
-	if p.sampleMax > 0 && len(ev.Data) > p.sampleMax {
-		ev.Data = ev.Data[:p.sampleMax]
+	if p.payloadCap > 0 && len(ev.Data) > p.payloadCap {
+		ev.Data = ev.Data[:p.payloadCap]
 	}
 	switch ev.Direction {
 	case models.DirectionRequest:
@@ -57,6 +65,16 @@ func (p *Processor) HandleEvent(ev models.Event) {
 		if p.diagnostics != nil {
 			p.diagnostics.IncParsedRequests()
 		}
+		payload := ""
+		if p.payloadCap > 0 {
+			if p.redactor == nil {
+				p.redactorWarn.Do(func() {
+					log.Printf("payload sampling enabled (HTTP_SAMPLE_BYTES=%d) but no redactor configured; no bytes will be stored", p.payloadCap)
+				})
+			} else {
+				payload = string(p.redactor.Redact(ev.Data))
+			}
+		}
 		p.correlator.Add(correlation.Request{
 			Key: correlation.RequestKey{
 				Pid: ev.Pid,
@@ -66,6 +84,7 @@ func (p *Processor) HandleEvent(ev models.Event) {
 			CgroupID: ev.CgroupID,
 			Method:   method,
 			Path:     path,
+			Payload:  payload,
 			Started:  ev.Timestamp,
 		})
 	case models.DirectionResponse:
@@ -102,6 +121,7 @@ func (p *Processor) HandleEvent(ev models.Event) {
 			Status:     status,
 			Method:     req.Method,
 			Path:       req.Path,
+			Payload:    req.Payload,
 			DurationNs: uint64(duration.Nanoseconds()),
 			Node:       p.node,
 		}

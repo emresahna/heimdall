@@ -196,7 +196,9 @@ for every release; `local_test.sh` builds and loads the matching `VERSION` into 
 - `BATCHER_MAX_QUEUE` (default: `1000`)
 - `BATCHER_RETRY_BACKOFF` (default: `200ms`)
 - `K8S_ENRICH` (default: `false`)
-- `HTTP_SAMPLE_BYTES` (default: `1024`)
+- `HTTP_SAMPLE_BYTES` (payload sampling cap, default: `0` = off). When > 0, the first
+  `min(HTTP_SAMPLE_BYTES, 128)` request-head bytes may be stored, but only if a redactor is
+  configured; otherwise no bytes are stored (fail-closed). Redaction patterns arrive with EPIC-016.
 - `CORRELATOR_TTL` (default: `30s`)
 - `DIAGNOSTICS_INTERVAL` (default: `15s`, set `0` to disable)
 - `CB_THRESHOLD` (default: `5`)
@@ -237,7 +239,10 @@ connectivity (config, credentials, DNS) rather than the server binary itself.
 - **Whole-host capture.** All processes on the node are traced; there is no cgroup/pod scoping yet.
 - **At-most-once delivery.** Batches are retried (with backoff) and then dropped on prolonged outages; there is no local spool.
 - **Best-effort correlation.** Requests and responses are paired by `(pid, fd)`; fd reuse can mispair entries.
-- **No body data.** Only the request line (method/path) and response status line are stored; the `payload` column is reserved but unused.
+- **No body data by default.** Only the request line (method/path) and response status line are
+  stored. The `payload` column is populated only with opt-in request-head sampling
+  (`HTTP_SAMPLE_BYTES > 0`) **and** requires a configured redactor before any bytes are stored
+  (fail-closed); it is empty by default and until redaction patterns land (EPIC-016).
 - **Little-endian BPF object.** The committed eBPF object is `bpfel` (works on amd64 and arm64 nodes); big-endian architectures are unsupported.
 - **No authentication.** gRPC and HTTP endpoints are unauthenticated and TLS is off by default.
 

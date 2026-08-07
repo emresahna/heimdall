@@ -30,6 +30,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Addr != "127.0.0.1:9000" {
 		t.Errorf("expected default ClickHouse addr, got %q", cfg.Addr)
 	}
+	if cfg.HTTPSampleBytes != 0 {
+		t.Errorf("expected default HTTPSampleBytes 0 (off), got %d", cfg.HTTPSampleBytes)
+	}
 }
 
 func TestLoadEnvOverrides(t *testing.T) {

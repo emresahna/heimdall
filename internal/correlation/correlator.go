@@ -23,6 +23,7 @@ type Request struct {
 	CgroupID uint64
 	Method   string
 	Path     string
+	Payload  string
 	Started  time.Time
 }
 

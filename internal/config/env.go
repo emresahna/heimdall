@@ -27,7 +27,7 @@ type ServerConfig struct {
 	K8sEnrich           bool          `env:"K8S_ENRICH"           aliases:"AGENT_K8S_ENRICH"              default:"false"`
 	DiagnosticsInterval time.Duration `env:"DIAGNOSTICS_INTERVAL" aliases:"AGENT_DIAGNOSTICS_INTERVAL"    default:"15s"`
 	ShutdownTimeout     time.Duration `env:"SHUTDOWN_TIMEOUT"     aliases:"HTTP_SHUTDOWN_TIMEOUT"        default:"5s"`
-	HTTPSampleBytes     int           `env:"HTTP_SAMPLE_BYTES"    aliases:"AGENT_HTTP_SAMPLE_BYTES"      default:"1024"`
+	HTTPSampleBytes     int           `env:"HTTP_SAMPLE_BYTES"    aliases:"AGENT_HTTP_SAMPLE_BYTES"      default:"0"`
 }
 
 type ClickHouseConfig struct {

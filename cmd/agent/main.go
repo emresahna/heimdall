@@ -82,6 +82,7 @@ func main() {
 		batcher,
 		cfg.NodeName,
 		cfg.HTTPSampleBytes,
+		nil,
 		diagnostics,
 	)
 
