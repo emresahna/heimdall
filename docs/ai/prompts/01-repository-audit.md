@@ -1,2 +1,0 @@
-# Repository Audit
-Audit the entire repository before making changes. Understand architecture, data flow, dependencies, docs, CI, tests, and compare with industry practices. Produce an architecture understanding report with evidence.

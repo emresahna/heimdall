@@ -1,2 +1,0 @@
-# Implementation Planning
-Select one backlog epic. Produce IMPLEMENTATION_PLAN.md with architecture, affected files, risks, milestones, validation plan, rollback plan, and acceptance criteria. Do not write code.
