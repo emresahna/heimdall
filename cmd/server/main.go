@@ -18,6 +18,7 @@ import (
 	"github.com/emresahna/heimdall/internal/storage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	grpcHealthV1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var version = "dev"
@@ -60,8 +61,8 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(opts...)
-	pb.RegisterLogServiceServer(grpcServer, server.NewGrpcServer(db))
-	server.RegisterHealthService(grpcServer, server.NewHealthServer(db))
+	pb.RegisterLogServiceServer(grpcServer, server.NewLogServer(db))
+	grpcHealthV1.RegisterHealthServer(grpcServer, server.NewHealthServer(db))
 
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.HTTPPort,

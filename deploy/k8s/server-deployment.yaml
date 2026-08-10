@@ -20,6 +20,13 @@ spec:
       - name: server
         image: ghcr.io/emresahna/heimdall-server:v0.1.0
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
         env:
         - name: CLICKHOUSE_ADDR
           value: "clickhouse:9000"
@@ -37,15 +44,13 @@ spec:
         - containerPort: 50051
         - containerPort: 8080
         readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8080
+          grpc:
+            port: 50051
           initialDelaySeconds: 5
           periodSeconds: 5
         livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
+          grpc:
+            port: 50051
           initialDelaySeconds: 10
           periodSeconds: 10
 ---

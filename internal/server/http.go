@@ -70,10 +70,7 @@ func (s *HttpServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 		from, to = to, from
 	}
 
-	limit := parseInt(query.Get("limit"), 200)
-	if limit > 1000 {
-		limit = 1000
-	}
+	limit := min(parseInt(query.Get("limit"), 200), 1000)
 	offset := parseInt(query.Get("offset"), 0)
 
 	var status *uint32

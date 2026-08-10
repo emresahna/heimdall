@@ -91,10 +91,10 @@ func TestParseEventSeqnoOffset(t *testing.T) {
 	raw := make([]byte, 168)
 	binary.LittleEndian.PutUint64(raw[0:8], uint64((2 * time.Second).Nanoseconds()))
 	binary.LittleEndian.PutUint32(raw[16:20], 1234)
-	binary.LittleEndian.PutUint32(raw[28:32], 5)
+	binary.LittleEndian.PutUint32(raw[28:32], 6)
 	raw[32] = uint8(models.DirectionRequest)
 	binary.LittleEndian.PutUint32(raw[36:40], 777)
-	copy(raw[40:45], []byte("GET /x"))
+	copy(raw[40:46], []byte("GET /x"))
 
 	evt, err := parseEvent(raw)
 	if err != nil {

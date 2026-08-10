@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -15,6 +14,7 @@ type HealthChecker interface {
 // HealthServer implements grpc.health.v1.Health service
 type HealthServer struct {
 	grpc_health_v1.UnimplementedHealthServer
+
 	checker HealthChecker
 }
 
@@ -28,24 +28,19 @@ func NewHealthServer(checker ...HealthChecker) *HealthServer {
 	return &HealthServer{checker: c}
 }
 
-func (s *HealthServer) Check(
-	ctx context.Context,
-	req *grpc_health_v1.HealthCheckRequest,
-) (*grpc_health_v1.HealthCheckResponse, error) {
+func (s *HealthServer) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 	if s.checker != nil && !s.checker.IsHealthy() {
 		return &grpc_health_v1.HealthCheckResponse{
 			Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING,
 		}, nil
 	}
+
 	return &grpc_health_v1.HealthCheckResponse{
 		Status: grpc_health_v1.HealthCheckResponse_SERVING,
 	}, nil
 }
 
-func (s *HealthServer) Watch(
-	req *grpc_health_v1.HealthCheckRequest,
-	stream grpc_health_v1.Health_WatchServer,
-) error {
+func (s *HealthServer) Watch(req *grpc_health_v1.HealthCheckRequest, stream grpc_health_v1.Health_WatchServer) error {
 	// Send initial serving status
 	status := grpc_health_v1.HealthCheckResponse_SERVING
 	if s.checker != nil && !s.checker.IsHealthy() {
@@ -61,9 +56,4 @@ func (s *HealthServer) Watch(
 	// Keep stream open
 	<-stream.Context().Done()
 	return nil
-}
-
-// RegisterHealthService registers the health service on a gRPC server with a specific server instance
-func RegisterHealthService(s *grpc.Server, healthServer *HealthServer) {
-	grpc_health_v1.RegisterHealthServer(s, healthServer)
 }

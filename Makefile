@@ -35,7 +35,15 @@ build-agent:
 build-server:
 	CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION)" -o bin/server ./cmd/server
 
-generate: generate-proto generate-ebpf
+generate: generate-vmlinux generate-ebpf generate-proto
+
+generate-vmlinux:
+	@command -v bpftool >/dev/null 2>&1 || { echo "bpftool is required"; exit 1; }
+	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $(VMLINUX_FILE)
+
+generate-ebpf:
+	@command -v bpf2go >/dev/null 2>&1 || { echo "bpf2go is required"; exit 1; }
+	GOPACKAGE=bpf GOARCH=amd64 go generate ./internal/bpf/...
 
 generate-proto:
 	@command -v protoc >/dev/null 2>&1 || { echo "protoc is required"; exit 1; }
@@ -46,23 +54,23 @@ generate-proto:
 	  --go-grpc_out=. --go-grpc_opt=paths=source_relative \
 	  $(PROTO_FILE)
 
-generate-vmlinux:
-	@command -v bpftool >/dev/null 2>&1 || { echo "bpftool is required"; exit 1; }
-	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $(VMLINUX_FILE)
-
-generate-ebpf: generate-vmlinux
-	@command -v bpf2go >/dev/null 2>&1 || { echo "bpf2go is required"; exit 1; }
-	GOOS=linux GOARCH=amd64 go generate ./internal/bpf/...
-
 builder-image:
 	@docker image inspect $(BUILDER_IMAGE) >/dev/null 2>&1 || \
 		docker build -t $(BUILDER_IMAGE) -f Dockerfile.builder .
 
+generate-docker: generate-header-docker generate-ebpf-docker generate-proto-docker
+
+generate-header-docker: builder-image
+	docker run --rm -v $(CURDIR):/app $(BUILDER_IMAGE) \
+		bpftool btf dump file /sys/kernel/btf/vmlinux format c > $(VMLINUX_FILE)
+
 generate-ebpf-docker: builder-image
-	docker run --rm -v $(CURDIR):/work -w /work $(BUILDER_IMAGE) bash -c \
-		'bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/bpf/vmlinux.h && \
-		cd internal/bpf && \
-		GOPACKAGE=bpf GOARCH=amd64 bpf2go -target bpf Tracker tracker.c -- -I -O2 -g0'
+	docker run --rm -v $(CURDIR):/app -e GOPACKAGE=bpf -e GOARCH=amd64 $(BUILDER_IMAGE) \
+		bpf2go -target bpf -output-dir internal/bpf Tracker internal/bpf/tracker.c -- -I -O2 -g0
+
+generate-proto-docker: builder-image
+	docker run --rm -v $(CURDIR):/app $(BUILDER_IMAGE) \
+		protoc --proto_path=. --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative $(PROTO_FILE)
 
 docker-agent:
 	docker build --build-arg VERSION=$(VERSION) --build-arg REVISION=$(REVISION) -t heimdall-agent:$(VERSION) -f Dockerfile.agent .

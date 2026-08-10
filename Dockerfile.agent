@@ -11,7 +11,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o /out/agent ./cmd/agent
 
-FROM debian:bookworm-slim
+FROM scratch
 
 ARG VERSION=dev
 ARG REVISION=unknown
@@ -20,11 +20,8 @@ LABEL org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.source="https://github.com/emresahna/heimdall"
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 COPY --from=builder /out/agent /app/agent
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 CMD ["/app/agent"]
