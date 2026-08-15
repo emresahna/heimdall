@@ -44,13 +44,15 @@ spec:
         - containerPort: 50051
         - containerPort: 8080
         readinessProbe:
-          grpc:
-            port: 50051
+          httpGet:
+            path: /readyz
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
         livenessProbe:
-          grpc:
-            port: 50051
+          httpGet:
+            path: /healthz
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 10
 ---

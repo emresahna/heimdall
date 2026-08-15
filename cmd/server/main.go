@@ -18,7 +18,6 @@ import (
 	"github.com/emresahna/heimdall/internal/storage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	grpcHealthV1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var version = "dev"
@@ -34,7 +33,7 @@ func main() {
 	cfg := config.Load()
 	log.Printf("starting Heimdall server version %s", version)
 
-	db, err := storage.NewClickHouse(cfg.ClickHouseConfig)
+	db, err := connectClickHouseWithRetry(cfg.ClickHouseConfig)
 	if err != nil {
 		log.Fatalf("DB connection error: %v", err)
 	}
@@ -61,8 +60,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(opts...)
-	pb.RegisterLogServiceServer(grpcServer, server.NewLogServer(db))
-	grpcHealthV1.RegisterHealthServer(grpcServer, server.NewHealthServer(db))
+	pb.RegisterLogServiceServer(grpcServer, server.NewGprcServer(db))
 
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.HTTPPort,
@@ -96,4 +94,35 @@ func main() {
 	)
 	defer cancelShutdown()
 	_ = httpServer.Shutdown(shutdownCtx)
+}
+
+func connectClickHouseWithRetry(cfg config.ClickHouseConfig) (*storage.DB, error) {
+	const (
+		maxAttempts  = 5
+		initialDelay = time.Second
+	)
+
+	var (
+		db    *storage.DB
+		err   error
+		delay = initialDelay
+	)
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		db, err = storage.NewClickHouse(cfg)
+		if err == nil {
+			return db, nil
+		}
+
+		if attempt == maxAttempts {
+			break
+		}
+
+		log.Printf("ClickHouse connection failed (attempt %d/%d): %v; retrying in %s", attempt, maxAttempts, err, delay)
+
+		time.Sleep(delay)
+		delay *= 2
+	}
+
+	return nil, fmt.Errorf("failed to connect to ClickHouse after %d attempts: %w", maxAttempts, err)
 }

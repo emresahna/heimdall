@@ -10,17 +10,17 @@ import (
 	"github.com/emresahna/heimdall/internal/storage"
 )
 
-type LogServer struct {
+type GrpcServer struct {
 	pb.UnimplementedLogServiceServer
 
 	DB *storage.DB
 }
 
-func NewLogServer(db *storage.DB) *LogServer {
-	return &LogServer{DB: db}
+func NewGprcServer(db *storage.DB) *GrpcServer {
+	return &GrpcServer{DB: db}
 }
 
-func (s *LogServer) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, error) {
+func (s *GrpcServer) SendLogs(ctx context.Context, req *pb.LogBatch) (*pb.Response, error) {
 	metrics.EventsReceivedTotal.Add(float64(len(req.Entries)))
 	logs := make([]models.LogEntry, 0, len(req.Entries))
 	for _, entry := range req.Entries {

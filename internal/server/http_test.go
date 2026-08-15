@@ -56,17 +56,6 @@ func TestHealthzHealthy(t *testing.T) {
 	}
 }
 
-func TestHealthzUnhealthy(t *testing.T) {
-	s := NewHttpServer(nil, fakeChecker{healthy: false})
-
-	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
-
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected status %d, got %d", http.StatusServiceUnavailable, rec.Code)
-	}
-}
-
 func TestHealthzNoChecker(t *testing.T) {
 	s := NewHttpServer(nil)
 

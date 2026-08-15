@@ -12,22 +12,22 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+type ReadyChecker interface {
+	IsHealthy() bool
+}
+
 type HttpServer struct {
-	db      *storage.DB
-	checker HealthChecker
-	version string
+	db       *storage.DB
+	checkers []ReadyChecker
+	version  string
 }
 
-func NewHttpServer(db *storage.DB, checker ...HealthChecker) *HttpServer {
-	return NewHttpServerWithVersion(db, "dev", checker...)
+func NewHttpServer(db *storage.DB, checkers ...ReadyChecker) *HttpServer {
+	return NewHttpServerWithVersion(db, "dev", checkers...)
 }
 
-func NewHttpServerWithVersion(db *storage.DB, version string, checker ...HealthChecker) *HttpServer {
-	var c HealthChecker
-	if len(checker) > 0 {
-		c = checker[0]
-	}
-	return &HttpServer{db: db, checker: c, version: version}
+func NewHttpServerWithVersion(db *storage.DB, version string, checkers ...ReadyChecker) *HttpServer {
+	return &HttpServer{db: db, checkers: checkers, version: version}
 }
 
 func (s *HttpServer) Handler() http.Handler {
@@ -41,21 +41,19 @@ func (s *HttpServer) Handler() http.Handler {
 }
 
 func (s *HttpServer) handleHealth(w http.ResponseWriter, _ *http.Request) {
-	if s.checker != nil && !s.checker.IsHealthy() {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte("unhealthy"))
-		return
-	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok\nversion: " + s.version + "\n"))
 }
 
 func (s *HttpServer) handleReadyz(w http.ResponseWriter, _ *http.Request) {
-	if s.checker != nil && !s.checker.IsHealthy() {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte("not ready"))
-		return
+	for _, checker := range s.checkers {
+		if checker != nil && !checker.IsHealthy() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("not ready"))
+			return
+		}
 	}
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ready"))
 }

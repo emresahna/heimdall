@@ -72,6 +72,8 @@ generate-proto-docker: builder-image
 	docker run --rm -v $(CURDIR):/app $(BUILDER_IMAGE) \
 		protoc --proto_path=. --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative $(PROTO_FILE)
 
+build-docker: docker-agent docker-server
+
 docker-agent:
 	docker build --build-arg VERSION=$(VERSION) --build-arg REVISION=$(REVISION) -t heimdall-agent:$(VERSION) -f Dockerfile.agent .
 
